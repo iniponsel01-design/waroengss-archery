@@ -1,0 +1,292 @@
+// ============================================================
+// Waroeng SS Archery — Prisma Schema
+// PostgreSQL / Supabase
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── ADMIN USERS ─────────────────────────────────────────────
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  role         AdminRole @default(EDITOR)
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  auditLogs    AuditLog[]
+
+  @@map("admin_users")
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+}
+
+// ─── EVENTS ──────────────────────────────────────────────────
+model Event {
+  id           String      @id @default(cuid())
+  slug         String      @unique
+  title        String
+  description  String?
+  location     String?
+  startDate    DateTime?   @map("start_date")
+  endDate      DateTime?   @map("end_date")
+  timezone     String      @default("Asia/Jakarta")
+  status       EventStatus @default(DRAFT)
+  publishedAt  DateTime?   @map("published_at")
+
+  // SEO / Social
+  seoTitle       String? @map("seo_title")
+  seoDescription String? @map("seo_description")
+  ogImageUrl     String? @map("og_image_url")
+
+  // Cover — references a MediaFile id (nullable, set after sync)
+  coverPhotoId   String? @map("cover_photo_id")
+
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  eventDays    EventDay[]
+  mediaFiles   MediaFile[]
+  syncJobs     SyncJob[]
+  featuredMedia FeaturedMedia[]
+  storageConnections StorageConnection[]
+
+  @@index([slug])
+  @@index([status])
+  @@map("events")
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ─── EVENT DAYS ───────────────────────────────────────────────
+model EventDay {
+  id          String   @id @default(cuid())
+  eventId     String   @map("event_id")
+  dayNumber   Int      @map("day_number")
+  title       String
+  description String?
+  date        DateTime?
+  coverPhotoId String? @map("cover_photo_id")
+  sortOrder   Int      @default(0) @map("sort_order")
+  status      DayStatus @default(ACTIVE)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  albums      Album[]
+  mediaFiles  MediaFile[]
+
+  @@unique([eventId, dayNumber])
+  @@index([eventId])
+  @@index([sortOrder])
+  @@map("event_days")
+}
+
+enum DayStatus {
+  ACTIVE
+  HIDDEN
+}
+
+// ─── ALBUMS ──────────────────────────────────────────────────
+model Album {
+  id            String    @id @default(cuid())
+  eventDayId    String    @map("event_day_id")
+  name          String
+  slug          String
+  description   String?
+  coverPhotoId  String?   @map("cover_photo_id")
+  driveFolderId String?   @map("drive_folder_id")
+  sortOrder     Int       @default(0) @map("sort_order")
+  status        AlbumStatus @default(ACTIVE)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  eventDay      EventDay  @relation(fields: [eventDayId], references: [id], onDelete: Cascade)
+  mediaFiles    MediaFile[]
+  syncJobs      SyncJob[]
+
+  @@unique([eventDayId, slug])
+  @@index([eventDayId])
+  @@index([driveFolderId])
+  @@map("albums")
+}
+
+enum AlbumStatus {
+  ACTIVE
+  HIDDEN
+}
+
+// ─── MEDIA FILES ─────────────────────────────────────────────
+model MediaFile {
+  id           String      @id @default(cuid())
+  eventId      String      @map("event_id")
+  eventDayId   String      @map("event_day_id")
+  albumId      String      @map("album_id")
+
+  // Google Drive fields
+  driveFileId  String      @unique @map("drive_file_id")
+  filename     String
+  mimeType     String      @map("mime_type")
+  fileSize     BigInt?     @map("file_size")
+  width        Int?
+  height       Int?
+
+  // URL fields (constructed from Drive file ID)
+  thumbnailUrl  String?    @map("thumbnail_url")
+  previewUrl    String?    @map("preview_url")
+  downloadUrl   String?    @map("download_url")
+
+  driveModifiedAt DateTime? @map("drive_modified_at")
+
+  status       MediaStatus @default(ACTIVE)
+  sortOrder    Int         @default(0) @map("sort_order")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  event        Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventDay     EventDay    @relation(fields: [eventDayId], references: [id], onDelete: Cascade)
+  album        Album       @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  featuredIn   FeaturedMedia[]
+
+  @@index([eventId])
+  @@index([eventDayId])
+  @@index([albumId])
+  @@index([driveFileId])
+  @@index([status])
+  @@index([driveModifiedAt])
+  @@map("media_files")
+}
+
+enum MediaStatus {
+  ACTIVE
+  HIDDEN
+  DELETED
+}
+
+// ─── FEATURED MEDIA ───────────────────────────────────────────
+model FeaturedMedia {
+  id          String   @id @default(cuid())
+  eventId     String   @map("event_id")
+  mediaFileId String   @map("media_file_id")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  mediaFile   MediaFile @relation(fields: [mediaFileId], references: [id], onDelete: Cascade)
+
+  @@map("featured_media")
+}
+
+// ─── STORAGE CONNECTIONS ──────────────────────────────────────
+model StorageConnection {
+  id          String   @id @default(cuid())
+  eventId     String   @map("event_id")
+  provider    StorageProvider @default(GOOGLE_DRIVE)
+  name        String
+  config      Json     // encrypted/stored config per provider
+  isActive    Boolean  @default(true) @map("is_active")
+  lastSyncAt  DateTime? @map("last_sync_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  syncJobs    SyncJob[]
+
+  @@index([eventId])
+  @@map("storage_connections")
+}
+
+enum StorageProvider {
+  GOOGLE_DRIVE
+  S3
+  CLOUDFLARE_R2
+}
+
+// ─── SYNC JOBS ────────────────────────────────────────────────
+model SyncJob {
+  id                String     @id @default(cuid())
+  eventId           String     @map("event_id")
+  albumId           String?    @map("album_id")
+  storageConnectionId String?  @map("storage_connection_id")
+  provider          StorageProvider @default(GOOGLE_DRIVE)
+  status            SyncStatus @default(QUEUED)
+
+  startedAt         DateTime?  @map("started_at")
+  completedAt       DateTime?  @map("completed_at")
+
+  totalFiles        Int        @default(0) @map("total_files")
+  addedFiles        Int        @default(0) @map("added_files")
+  updatedFiles      Int        @default(0) @map("updated_files")
+  deletedFiles      Int        @default(0) @map("deleted_files")
+  failedFiles       Int        @default(0) @map("failed_files")
+  skippedFiles      Int        @default(0) @map("skipped_files")
+
+  errorMessage      String?    @map("error_message")
+  logData           Json?      @map("log_data")
+
+  createdAt         DateTime   @default(now()) @map("created_at")
+
+  event             Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  album             Album?     @relation(fields: [albumId], references: [id])
+  storageConnection StorageConnection? @relation(fields: [storageConnectionId], references: [id])
+
+  @@index([eventId])
+  @@index([status])
+  @@map("sync_jobs")
+}
+
+enum SyncStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+// ─── SITE SETTINGS ────────────────────────────────────────────
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// ─── AUDIT LOGS ───────────────────────────────────────────────
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  action     String
+  entity     String?
+  entityId   String?  @map("entity_id")
+  metadata   Json?
+  ipHash     String?  @map("ip_hash")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       AdminUser? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

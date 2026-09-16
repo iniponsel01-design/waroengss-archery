@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Calendar, MapPin, Layers, Images } from "lucide-react";
+import { Calendar, MapPin, Layers, Images, Search } from "lucide-react";
 import { eventRepository } from "@/repositories/event.repository";
 import { prisma } from "@/lib/db/client";
 import { SiteHeader } from "@/components/shared/SiteHeader";
@@ -105,6 +105,17 @@ export default async function EventPage({ params }: Props) {
                 albums={totalAlbums}
                 photos={totalPhotos}
               />
+
+              {/* Search link */}
+              <div className="mt-6">
+                <Link
+                  href={`/e/${eventSlug}/search`}
+                  className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-sm px-4 py-2 rounded-xl transition-colors"
+                >
+                  <Search size={15} />
+                  Cari Foto
+                </Link>
+              </div>
             </div>
           </div>
         </section>

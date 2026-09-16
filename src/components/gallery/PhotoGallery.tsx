@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Image from "next/image";
 import { Loader2, Images } from "lucide-react";
 import { PhotoViewer } from "./PhotoViewer";
 import { cn } from "@/lib/utils/cn";
@@ -41,46 +40,41 @@ export function PhotoGallery({ albumId, eventSlug, initialCursor }: PhotoGallery
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const fetchingRef = useRef(false);
 
-  const fetchPhotos = useCallback(
-    async (loadCursor?: string) => {
-      if (loading) return;
-      setLoading(true);
+  const fetchPhotos = useCallback(async (loadCursor?: string) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    setLoading(true);
 
-      try {
-        const params = new URLSearchParams();
-        if (loadCursor) params.set("cursor", loadCursor);
+    try {
+      const params = new URLSearchParams({ pageSize: "48" });
+      if (loadCursor) params.set("cursor", loadCursor);
 
-        const res = await fetch(`/api/albums/${albumId}/photos?${params}`);
-        if (!res.ok) throw new Error("Failed to fetch photos");
+      const res = await fetch(`/api/albums/${albumId}/photos?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch photos");
 
-        const json: GalleryResponse = await res.json();
-
-        setPhotos((prev) =>
-          loadCursor ? [...prev, ...json.data] : json.data
-        );
-        setHasMore(json.hasNextPage);
-        setCursor(json.nextCursor);
-      } catch (err) {
-        console.error("Gallery fetch error:", err);
-      } finally {
-        setLoading(false);
-        setInitialLoaded(true);
-      }
-    },
-    [albumId, loading]
-  );
+      const json: GalleryResponse = await res.json();
+      setPhotos((prev) => loadCursor ? [...prev, ...json.data] : json.data);
+      setHasMore(json.hasNextPage);
+      setCursor(json.nextCursor);
+    } catch (err) {
+      console.error("Gallery fetch error:", err);
+    } finally {
+      setLoading(false);
+      setInitialLoaded(true);
+      fetchingRef.current = false;
+    }
+  }, [albumId]);
 
   // Initial load
   useEffect(() => {
     fetchPhotos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [albumId]);
+  }, [albumId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Intersection observer for infinite scroll
+  // Infinite scroll
   useEffect(() => {
     if (!loadMoreRef.current) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading && initialLoaded) {
@@ -89,35 +83,23 @@ export function PhotoGallery({ albumId, eventSlug, initialCursor }: PhotoGallery
       },
       { rootMargin: "400px" }
     );
-
     observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
   }, [hasMore, loading, cursor, initialLoaded, fetchPhotos]);
 
-  // Keyboard navigation for viewer
+  // Keyboard navigation
   useEffect(() => {
     if (!viewerOpen) return;
-
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") {
-        setViewerIndex((i) => Math.min(i + 1, photos.length - 1));
-      } else if (e.key === "ArrowLeft") {
-        setViewerIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Escape") {
-        setViewerOpen(false);
-      }
+      if (e.key === "ArrowRight") setViewerIndex((i) => Math.min(i + 1, photos.length - 1));
+      else if (e.key === "ArrowLeft") setViewerIndex((i) => Math.max(i - 1, 0));
+      else if (e.key === "Escape") setViewerOpen(false);
     };
-
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [viewerOpen, photos.length]);
 
-  const openViewer = (index: number) => {
-    setViewerIndex(index);
-    setViewerOpen(true);
-  };
-
-  // Empty state after initial load
+  // Empty state
   if (initialLoaded && photos.length === 0) {
     return (
       <div className="text-center py-24">
@@ -132,22 +114,10 @@ export function PhotoGallery({ albumId, eventSlug, initialCursor }: PhotoGallery
 
   return (
     <>
-      {/* Masonry Grid */}
-      <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-1.5 space-y-0">
-        {photos.map((photo, index) => (
-          <PhotoItem
-            key={photo.id}
-            photo={photo}
-            index={index}
-            onClick={() => openViewer(index)}
-          />
-        ))}
-      </div>
-
-      {/* Loading skeletons on initial load */}
+      {/* Skeleton saat loading awal */}
       {!initialLoaded && (
         <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-1.5">
-          {Array.from({ length: 24 }).map((_, i) => (
+          {Array.from({ length: 20 }).map((_, i) => (
             <div
               key={i}
               className={cn(
@@ -159,19 +129,35 @@ export function PhotoGallery({ albumId, eventSlug, initialCursor }: PhotoGallery
         </div>
       )}
 
-      {/* Infinite scroll sentinel */}
-      <div ref={loadMoreRef} className="h-16 flex items-center justify-center">
+      {/* Masonry Grid */}
+      {initialLoaded && (
+        <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-1.5">
+          {photos.map((photo, index) => (
+            <PhotoItem
+              key={photo.id}
+              photo={photo}
+              onClick={() => {
+                setViewerIndex(index);
+                setViewerOpen(true);
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Load more sentinel */}
+      <div ref={loadMoreRef} className="h-16 flex items-center justify-center mt-4">
         {loading && initialLoaded && (
           <Loader2 size={24} className="text-gray-500 animate-spin" />
         )}
         {!hasMore && photos.length > 0 && (
           <p className="text-gray-600 text-sm">
-            {photos.length.toLocaleString()} foto ditampilkan
+            {photos.length.toLocaleString("id-ID")} foto ditampilkan
           </p>
         )}
       </div>
 
-      {/* Photo Viewer Modal */}
+      {/* Photo Viewer */}
       {viewerOpen && (
         <PhotoViewer
           photos={photos}
@@ -186,23 +172,19 @@ export function PhotoGallery({ albumId, eventSlug, initialCursor }: PhotoGallery
   );
 }
 
-// Single photo item in the grid
+// ── Photo Item — pakai <img> biasa, bukan Next.js Image ──────
 function PhotoItem({
   photo,
-  index,
   onClick,
 }: {
   photo: Photo;
-  index: number;
   onClick: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
 
-  // Compute aspect ratio for the placeholder
   const aspectRatio =
-    photo.width && photo.height
-      ? photo.height / photo.width
-      : 1;
+    photo.width && photo.height ? photo.height / photo.width : 0.75;
 
   return (
     <button
@@ -211,19 +193,33 @@ function PhotoItem({
       style={{ paddingBottom: `${aspectRatio * 100}%` }}
       aria-label={`Buka foto: ${photo.filename}`}
     >
-      {photo.thumbnailUrl && (
-        <Image
+      {/* Placeholder saat loading */}
+      {!loaded && !error && (
+        <div className="absolute inset-0 bg-gray-800 animate-pulse" />
+      )}
+
+      {/* Error state */}
+      {error && (
+        <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+          <Images size={20} className="text-gray-600" />
+        </div>
+      )}
+
+      {/* Foto — pakai img biasa agar tidak diblokir Next.js */}
+      {photo.thumbnailUrl && !error && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           src={photo.thumbnailUrl}
           alt={photo.filename}
-          fill
           className={cn(
-            "object-cover transition-all duration-300",
+            "absolute inset-0 w-full h-full object-cover transition-all duration-300",
             "group-hover:scale-105 group-hover:brightness-90",
             loaded ? "opacity-100" : "opacity-0"
           )}
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
           loading="lazy"
           onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+          referrerPolicy="no-referrer"
         />
       )}
 

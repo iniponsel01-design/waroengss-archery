@@ -2,10 +2,13 @@
 const nextConfig = {
   images: {
     remotePatterns: [
+      // Google Drive thumbnail endpoint
       {
         protocol: "https",
         hostname: "drive.google.com",
+        pathname: "/thumbnail**",
       },
+      // Google user content (thumbnails via lh3)
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
@@ -15,14 +18,10 @@ const nextConfig = {
         hostname: "*.googleusercontent.com",
       },
     ],
-  },
-  typescript: {
-    // Type checking is run separately via `npm run typecheck`
-    // This avoids OOM crashes in the build worker on resource-constrained environments
-    ignoreBuildErrors: false,
-  },
-  eslint: {
-    ignoreDuringBuilds: false,
+    // Disable image optimization for external Drive URLs
+    // (Drive already serves optimized thumbnails)
+    unoptimized: false,
+    dangerouslyAllowSVG: false,
   },
   experimental: {
     serverComponentsExternalPackages: ["@prisma/client", "prisma"],

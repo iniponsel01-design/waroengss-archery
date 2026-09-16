@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Download, Share2, Heart, ArrowLeft, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -120,13 +119,12 @@ export function PhotoDetailViewer({
         </Link>
 
         {photo.previewUrl ? (
-          <Image
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={photo.previewUrl}
             alt={photo.filename}
-            fill
-            className="object-contain"
-            sizes="(max-width: 1024px) 100vw, 75vw"
-            priority
+            className="absolute inset-0 w-full h-full object-contain"
+            referrerPolicy="no-referrer"
           />
         ) : (
           <div className="text-gray-600 text-center p-8">

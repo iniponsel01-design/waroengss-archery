@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Images } from "lucide-react";
 import { formatNumber } from "@/lib/utils/date";
 
@@ -31,12 +30,13 @@ export function AlbumCard({ album, eventSlug, dayNumber }: AlbumCardProps) {
       {/* Thumbnail */}
       <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
         {album.coverPhoto?.thumbnailUrl ? (
-          <Image
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={album.coverPhoto.thumbnailUrl}
             alt={album.name}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+            referrerPolicy="no-referrer"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">

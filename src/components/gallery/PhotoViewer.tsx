@@ -245,15 +245,14 @@ export function PhotoViewer({
           style={{ width: "100%", height: "100%" }}
         >
           {photo.previewUrl ? (
-            <Image
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
               key={photo.id}
               src={photo.previewUrl}
               alt={photo.filename}
-              fill
-              className="object-contain select-none"
-              sizes="100vw"
-              priority
+              className="absolute inset-0 w-full h-full object-contain select-none"
               draggable={false}
+              referrerPolicy="no-referrer"
             />
           ) : (
             <div className="flex items-center justify-center w-full h-full text-gray-600">

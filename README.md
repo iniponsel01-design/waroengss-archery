@@ -72,16 +72,16 @@ Default admin credentials (development):
 
 | File | Deskripsi |
 |------|-----------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Arsitektur sistem |
-| [SETUP.md](./SETUP.md) | Panduan setup lengkap |
-| [ENVIRONMENT.md](./ENVIRONMENT.md) | Environment variables |
-| [GOOGLE_DRIVE_SETUP.md](./GOOGLE_DRIVE_SETUP.md) | Setup Google Drive |
-| [DATABASE.md](./DATABASE.md) | Database schema & migrasi |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | Deploy ke Vercel |
-| [ADMIN_GUIDE.md](./ADMIN_GUIDE.md) | Panduan admin |
-| [API.md](./API.md) | API reference |
-| [SECURITY.md](./SECURITY.md) | Security notes |
-| [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | Troubleshooting |
+| [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Arsitektur sistem |
+| [SETUP.md](./docs/SETUP.md) | Panduan setup lengkap |
+| [ENVIRONMENT.md](./docs/ENVIRONMENT.md) | Environment variables |
+| [GOOGLE_DRIVE_SETUP.md](./docs/GOOGLE_DRIVE_SETUP.md) | Setup Google Drive |
+| [DATABASE.md](./docs/DATABASE.md) | Database schema & migrasi |
+| [DEPLOYMENT.md](./docs/DEPLOYMENT.md) | Deploy ke Vercel |
+| [ADMIN_GUIDE.md](./docs/ADMIN_GUIDE.md) | Panduan admin |
+| [API.md](./docs/API.md) | API reference |
+| [SECURITY.md](./docs/SECURITY.md) | Security notes |
+| [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | Troubleshooting |
 
 ---
 

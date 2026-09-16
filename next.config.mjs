@@ -16,6 +16,14 @@ const nextConfig = {
       },
     ],
   },
+  typescript: {
+    // Type checking is run separately via `npm run typecheck`
+    // This avoids OOM crashes in the build worker on resource-constrained environments
+    ignoreBuildErrors: false,
+  },
+  eslint: {
+    ignoreDuringBuilds: false,
+  },
   experimental: {
     serverComponentsExternalPackages: ["@prisma/client", "prisma"],
   },

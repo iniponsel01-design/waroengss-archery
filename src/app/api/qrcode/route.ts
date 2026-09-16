@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         headers: {
           "Content-Type": "image/png",
           "Content-Disposition": `attachment; filename="qr-${eventSlug}.png"`,

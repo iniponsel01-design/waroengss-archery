@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/client";
 import { EventForm } from "@/components/admin/EventForm";
 import { DayManager } from "@/components/admin/DayManager";
 import { ExternalLink } from "lucide-react";
+import { DeleteEventButton } from "@/components/admin/DeleteEventButton";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,7 @@ export default async function EditEventPage({ params }: Props) {
               Lihat Publik
             </Link>
           )}
+          <DeleteEventButton eventId={event.id} eventTitle={event.title} />
         </div>
       </div>
 

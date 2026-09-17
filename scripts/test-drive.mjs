@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import { readFileSync } from 'fs';
 
-const FOLDER_ID = '1-fsyQKxeXwUGU8b616sq60Jx5etkgfhV';
+const FOLDER_ID = '1mU4x-pD4Sx0oMed8sAOvZIP8Hob8DNBx';
 const KEY_FILE = './service-account.json';
 
 const credentials = JSON.parse(readFileSync(KEY_FILE, 'utf8'));

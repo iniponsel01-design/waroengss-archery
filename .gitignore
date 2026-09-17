@@ -59,3 +59,4 @@ coverage/
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+service-account_OLD.json

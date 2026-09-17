@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <rect width="512" height="512" rx="102.4" fill="url(#bg)"/>
+  <!-- W letter for Waroeng -->
+  <text
+    x="50%"
+    y="54%"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    font-family="Arial Black, Arial, sans-serif"
+    font-weight="900"
+    font-size="266.24"
+    fill="#ec4899"
+    letter-spacing="-2"
+  >W</text>
+  <!-- SS small text -->
+  <text
+    x="50%"
+    y="82%"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    font-family="Arial, sans-serif"
+    font-weight="700"
+    font-size="71.68"
+    fill="#94a3b8"
+    letter-spacing="3"
+  >ARCHERY</text>
+</svg>

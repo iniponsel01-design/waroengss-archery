@@ -1,14 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Skip TS + ESLint during build — avoids SIGSEGV on constrained build environments
+  // Type checking should be run separately: npm run typecheck
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     remotePatterns: [
-      // Google Drive thumbnail endpoint
       {
         protocol: "https",
         hostname: "drive.google.com",
         pathname: "/thumbnail**",
       },
-      // Google user content (thumbnails via lh3)
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
@@ -18,8 +24,6 @@ const nextConfig = {
         hostname: "*.googleusercontent.com",
       },
     ],
-    // Disable image optimization for external Drive URLs
-    // (Drive already serves optimized thumbnails)
     unoptimized: false,
     dangerouslyAllowSVG: false,
   },

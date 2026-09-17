@@ -323,8 +323,13 @@ enum BannerType {
 enum BannerPos {
   HOME_TOP
   HOME_BOTTOM
+  EVENT_TOP
+  EVENT_BOTTOM
+  DAY_TOP
+  DAY_BOTTOM
   GALLERY_TOP
   GALLERY_BOTTOM
+  SEARCH_TOP
 }
 
 // ─── AD SLOTS ─────────────────────────────────────────────────
@@ -344,6 +349,8 @@ model AdSlot {
 
 enum AdPosition {
   HOME_BOTTOM
+  EVENT_BOTTOM
+  DAY_BOTTOM
   GALLERY_BOTTOM
   PHOTO_SIDEBAR
 }

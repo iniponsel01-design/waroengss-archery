@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/client";
 import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
 import { SearchResults } from "@/components/gallery/SearchResults";
+import { PageBannersTop } from "@/components/shared/PageBanners";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,9 @@ export default async function SearchPage({ params, searchParams }: Props) {
             </h1>
           </div>
         </section>
+
+        {/* Banner SEARCH TOP */}
+        <PageBannersTop position="SEARCH_TOP" className="max-w-7xl mx-auto px-4 pt-4" />
 
         {/* Search Results */}
         <section className="max-w-7xl mx-auto px-4 py-6">

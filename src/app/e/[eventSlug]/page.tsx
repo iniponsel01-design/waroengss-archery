@@ -9,6 +9,7 @@ import { SiteFooter } from "@/components/shared/SiteFooter";
 import { DayCard } from "@/components/gallery/DayCard";
 import { EventStats } from "@/components/gallery/EventStats";
 import { formatDateRange } from "@/lib/utils/date";
+import { PageBannersTop, PageBannersBottom } from "@/components/shared/PageBanners";
 
 export const revalidate = 300;
 
@@ -120,6 +121,9 @@ export default async function EventPage({ params }: Props) {
           </div>
         </section>
 
+        {/* Banner Event TOP */}
+        <PageBannersTop position="EVENT_TOP" className="max-w-6xl mx-auto px-4 pt-6" />
+
         {/* Event Days */}
         <section className="max-w-6xl mx-auto px-4 py-12">
           <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
@@ -145,6 +149,13 @@ export default async function EventPage({ params }: Props) {
             </div>
           )}
         </section>
+
+        {/* Banner + Iklan EVENT BOTTOM */}
+        <PageBannersBottom
+          bannerPosition="EVENT_BOTTOM"
+          adPosition="EVENT_BOTTOM"
+          className="max-w-6xl mx-auto px-4 pb-8 space-y-4"
+        />
       </main>
 
       <SiteFooter />

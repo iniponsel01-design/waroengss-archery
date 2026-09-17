@@ -25,10 +25,15 @@ interface BannerManagerProps {
 }
 
 const POSITIONS = [
-  { value: "HOME_TOP",        label: "Homepage — Atas" },
-  { value: "HOME_BOTTOM",     label: "Homepage — Bawah" },
-  { value: "GALLERY_TOP",     label: "Gallery — Atas" },
-  { value: "GALLERY_BOTTOM",  label: "Gallery — Bawah" },
+  { value: "HOME_TOP",        label: "🏠 Homepage — Atas" },
+  { value: "HOME_BOTTOM",     label: "🏠 Homepage — Bawah" },
+  { value: "EVENT_TOP",       label: "📅 Halaman Event — Atas" },
+  { value: "EVENT_BOTTOM",    label: "📅 Halaman Event — Bawah" },
+  { value: "DAY_TOP",         label: "📆 Halaman Hari — Atas" },
+  { value: "DAY_BOTTOM",      label: "📆 Halaman Hari — Bawah" },
+  { value: "GALLERY_TOP",     label: "🖼️ Gallery Foto — Atas" },
+  { value: "GALLERY_BOTTOM",  label: "🖼️ Gallery Foto — Bawah" },
+  { value: "SEARCH_TOP",      label: "🔍 Halaman Pencarian — Atas" },
 ];
 
 const TYPES = [

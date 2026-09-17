@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
 import { AlbumCard } from "@/components/gallery/AlbumCard";
 import { mediaRepository } from "@/repositories/media.repository";
+import { PageBannersTop, PageBannersBottom } from "@/components/shared/PageBanners";
 
 export const revalidate = 300;
 
@@ -101,6 +102,9 @@ export default async function DayPage({ params }: Props) {
           </div>
         </section>
 
+        {/* Banner DAY TOP */}
+        <PageBannersTop position="DAY_TOP" className="max-w-6xl mx-auto px-4 pt-6" />
+
         {/* Albums Grid */}
         <section className="max-w-6xl mx-auto px-4 py-10">
           <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
@@ -129,6 +133,13 @@ export default async function DayPage({ params }: Props) {
             </div>
           )}
         </section>
+
+        {/* Banner + Iklan DAY BOTTOM */}
+        <PageBannersBottom
+          bannerPosition="DAY_BOTTOM"
+          adPosition="DAY_BOTTOM"
+          className="max-w-6xl mx-auto px-4 pb-8 space-y-4"
+        />
       </main>
 
       <SiteFooter />

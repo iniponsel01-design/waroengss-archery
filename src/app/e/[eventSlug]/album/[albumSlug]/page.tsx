@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/client";
 import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
 import { PhotoGallery } from "@/components/gallery/PhotoGallery";
+import { PageBannersTop, PageBannersBottom } from "@/components/shared/PageBanners";
 
 export const revalidate = 120;
 
@@ -109,6 +110,9 @@ export default async function AlbumPage({ params, searchParams }: Props) {
           </div>
         </section>
 
+        {/* Banner GALLERY TOP */}
+        <PageBannersTop position="GALLERY_TOP" className="max-w-7xl mx-auto px-4 pt-4" />
+
         {/* Photo Gallery */}
         <section className="max-w-7xl mx-auto px-1.5 sm:px-4 py-4">
           <PhotoGallery
@@ -117,6 +121,13 @@ export default async function AlbumPage({ params, searchParams }: Props) {
             initialCursor={cursor}
           />
         </section>
+
+        {/* Banner + Iklan GALLERY BOTTOM */}
+        <PageBannersBottom
+          bannerPosition="GALLERY_BOTTOM"
+          adPosition="GALLERY_BOTTOM"
+          className="max-w-7xl mx-auto px-4 pb-8 space-y-4"
+        />
       </main>
 
       <SiteFooter dark />

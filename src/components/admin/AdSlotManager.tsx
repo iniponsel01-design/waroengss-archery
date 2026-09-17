@@ -15,9 +15,11 @@ interface AdSlot {
 }
 
 const POSITIONS = [
-  { value: "HOME_BOTTOM",     label: "Homepage — Bawah halaman" },
-  { value: "GALLERY_BOTTOM",  label: "Gallery — Bawah halaman" },
-  { value: "PHOTO_SIDEBAR",   label: "Halaman Foto — Sidebar" },
+  { value: "HOME_BOTTOM",     label: "🏠 Homepage — Bawah" },
+  { value: "EVENT_BOTTOM",    label: "📅 Halaman Event — Bawah" },
+  { value: "DAY_BOTTOM",      label: "📆 Halaman Hari — Bawah" },
+  { value: "GALLERY_BOTTOM",  label: "🖼️ Gallery Foto — Bawah" },
+  { value: "PHOTO_SIDEBAR",   label: "📷 Halaman Foto — Sidebar" },
 ];
 
 const inputClass = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white";

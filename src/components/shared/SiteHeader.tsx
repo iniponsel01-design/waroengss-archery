@@ -28,7 +28,7 @@ export async function SiteHeader({ transparent = false }: SiteHeaderProps) {
             <img
               src={branding.brandLogoUrl}
               alt={branding.brandName}
-              className="h-8 w-auto object-contain"
+              className="h-9 w-auto object-contain max-w-[160px]"
             />
           ) : (
             <span className="text-white font-bold text-sm tracking-wide">

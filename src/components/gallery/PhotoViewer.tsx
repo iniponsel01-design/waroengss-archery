@@ -221,7 +221,7 @@ export function PhotoViewer({
 
       {/* ── Main image ──────────────────────────────────── */}
       <div
-        className="flex-1 relative flex items-center justify-center overflow-hidden"
+        className="flex-1 relative flex items-center justify-center overflow-hidden bg-black"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -251,14 +251,14 @@ export function PhotoViewer({
           <ChevronRight size={24} />
         </button>
 
-        {/* Loading placeholder */}
+        {/* Loading spinner */}
         {!imgLoaded && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-10 h-10 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
           </div>
         )}
 
-        {/* Photo — tap to zoom */}
+        {/* Photo — fill area, tap to toggle zoom */}
         {photo.previewUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -266,22 +266,47 @@ export function PhotoViewer({
             src={photo.previewUrl}
             alt={photo.filename}
             onLoad={() => setImgLoaded(true)}
-            onClick={() => setZoomed((z) => !z)}
+            onClick={() => !zoomed && setZoomed(true)}
             className={cn(
-              "max-w-full max-h-full object-contain transition-transform duration-200",
-              zoomed ? "scale-150 cursor-zoom-out" : "cursor-zoom-in",
+              "transition-all duration-300 select-none",
+              // Normal: isi area sebesar mungkin tanpa crop
+              !zoomed && "w-full h-full object-contain cursor-zoom-in",
+              // Zoomed: scale 2x, bisa di-scroll, cursor zoom-out
+              zoomed && "cursor-zoom-out",
               imgLoaded ? "opacity-100" : "opacity-0"
             )}
-            style={{ maxHeight: "calc(100vh - 120px)" }}
+            style={zoomed ? {
+              // Saat zoom: gambar besar bisa di-scroll
+              width: "auto",
+              height: "auto",
+              maxWidth: "none",
+              maxHeight: "none",
+              transform: "scale(2)",
+              transformOrigin: "center center",
+            } : {
+              // Normal: isi semua area yang tersedia
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+            }}
             draggable={false}
             referrerPolicy="no-referrer"
           />
         )}
 
-        {/* Pinch zoom hint — mobile only */}
-        {imgLoaded && (
-          <p className="absolute bottom-3 left-1/2 -translate-x-1/2 text-white/30 text-xs sm:hidden pointer-events-none">
-            Cubit untuk zoom
+        {/* Klik di luar gambar saat zoom untuk keluar zoom */}
+        {zoomed && (
+          <button
+            className="absolute inset-0 w-full h-full z-0"
+            onClick={() => setZoomed(false)}
+            aria-label="Keluar zoom"
+          />
+        )}
+
+        {/* Pinch zoom hint — mobile only, hilang setelah 3 detik */}
+        {imgLoaded && !zoomed && (
+          <p className="absolute bottom-16 left-1/2 -translate-x-1/2 text-white/25 text-xs sm:hidden pointer-events-none whitespace-nowrap">
+            Tap untuk zoom · Geser untuk navigasi
           </p>
         )}
       </div>

@@ -151,7 +151,7 @@ export class GoogleDriveProvider implements StorageProviderInterface {
    * Larger size for better quality
    */
   getPreviewUrl(fileId: string): string {
-    return `${GOOGLE_DRIVE_THUMBNAIL_BASE}${fileId}&sz=1600`;
+    return `${GOOGLE_DRIVE_THUMBNAIL_BASE}${fileId}&sz=2400`;
   }
 
   /**

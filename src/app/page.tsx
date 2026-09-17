@@ -1,17 +1,32 @@
 import Link from "next/link";
 import { eventRepository } from "@/repositories/event.repository";
+import { prisma } from "@/lib/db/client";
 import { EventCard } from "@/components/gallery/EventCard";
 import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
+import { BannerSlider } from "@/components/shared/BannerSlider";
+import { AdBlock } from "@/components/shared/AdBlock";
 import { config } from "@/config";
 
-export const revalidate = 60; // Revalidate every minute
+export const revalidate = 60;
 
 export default async function HomePage() {
-  const { data: events } = await eventRepository.listPublished({
-    page: 1,
-    pageSize: 12,
-  });
+  const [{ data: events }, bannersTop, bannersBottom, adSlots] = await Promise.all([
+    eventRepository.listPublished({ page: 1, pageSize: 12 }),
+    prisma.banner.findMany({
+      where: { isActive: true, position: "HOME_TOP" },
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.banner.findMany({
+      where: { isActive: true, position: "HOME_BOTTOM" },
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.adSlot.findMany({
+      where: { isActive: true, position: "HOME_BOTTOM" },
+    }),
+  ]);
+
+  const homeBottomAd = adSlots[0] ?? null;
 
   return (
     <>
@@ -37,7 +52,6 @@ export default async function HomePage() {
               Temukan, lihat, dan unduh foto dokumentasi event dengan mudah.
               Tidak perlu login, langsung akses.
             </p>
-
             {events.length > 0 && (
               <Link
                 href={`/e/${events[0].slug}`}
@@ -49,8 +63,15 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* Banner Promosi — TOP */}
+        {bannersTop.length > 0 && (
+          <div className="max-w-6xl mx-auto px-4 pt-6">
+            <BannerSlider banners={bannersTop} dismissable />
+          </div>
+        )}
+
         {/* Events Grid */}
-        <section className="max-w-6xl mx-auto px-4 py-16">
+        <section className="max-w-6xl mx-auto px-4 py-12">
           <div className="flex items-baseline justify-between mb-8">
             <h2 className="text-2xl font-bold text-gray-900">Event Terbaru</h2>
             <span className="text-sm text-gray-500">{events.length} event</span>
@@ -68,6 +89,26 @@ export default async function HomePage() {
             </div>
           )}
         </section>
+
+        {/* Banner Promosi — BOTTOM */}
+        {bannersBottom.length > 0 && (
+          <div className="max-w-6xl mx-auto px-4 pb-6">
+            <BannerSlider banners={bannersBottom} autoPlayMs={7000} dismissable />
+          </div>
+        )}
+
+        {/* AdSense Block — HOME_BOTTOM */}
+        {homeBottomAd && (
+          <div className="max-w-6xl mx-auto px-4 pb-8">
+            <p className="text-xs text-gray-400 text-center mb-2">Advertisement</p>
+            <AdBlock
+              adClient={homeBottomAd.adClient}
+              adSlot={homeBottomAd.adSlot}
+              adFormat={homeBottomAd.adFormat}
+              className="w-full"
+            />
+          </div>
+        )}
       </main>
 
       <SiteFooter />

@@ -15,8 +15,7 @@ import {
   Settings,
   ScrollText,
   ChevronRight,
-} from "lucide-react";
-import { cn } from "@/lib/utils/cn";
+} from "lucide-react";import { cn } from "@/lib/utils/cn";
 
 const navItems = [
   {
@@ -43,6 +42,14 @@ const navItems = [
     group: "Tools",
     items: [
       { label: "QR Code", href: "/admin/dashboard/tools/qrcode", icon: QrCode },
+    ],
+  },
+  {
+    group: "Appearance",
+    items: [
+      { label: "Banner & Promosi", href: "/admin/dashboard/appearance/banners", icon: Palette },
+      { label: "Iklan (AdSense)", href: "/admin/dashboard/appearance/ads", icon: Palette },
+      { label: "Branding", href: "/admin/dashboard/appearance/branding", icon: Palette },
     ],
   },
   {

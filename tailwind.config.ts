@@ -32,6 +32,7 @@ const config: Config = {
         "fade-in": "fadeIn 0.3s ease-in-out",
         "slide-up": "slideUp 0.4s ease-out",
         "scale-in": "scaleIn 0.2s ease-out",
+        "progress-bar": "progressBar linear forwards",
       },
       keyframes: {
         fadeIn: {
@@ -45,6 +46,10 @@ const config: Config = {
         scaleIn: {
           "0%": { transform: "scale(0.95)", opacity: "0" },
           "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        progressBar: {
+          "0%": { width: "0%" },
+          "100%": { width: "100%" },
         },
       },
       screens: {

@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 interface Banner {
@@ -25,6 +24,16 @@ interface BannerSliderProps {
   dismissable?: boolean;
 }
 
+/**
+ * Deteksi apakah banner adalah "image-only" (iklan eksternal):
+ * - punya imageUrl
+ * - type adalah SPONSOR
+ * Jika iya, tampilkan sebagai gambar penuh yang bisa diklik
+ */
+function isImageOnlyBanner(banner: Banner): boolean {
+  return !!banner.imageUrl && banner.type === "SPONSOR";
+}
+
 export function BannerSlider({
   banners,
   autoPlayMs = 5000,
@@ -40,7 +49,6 @@ export function BannerSlider({
   const next = useCallback(() => setCurrent((c) => (c + 1) % total), [total]);
   const prev = useCallback(() => setCurrent((c) => (c - 1 + total) % total), [total]);
 
-  // Auto-play
   useEffect(() => {
     if (total <= 1 || paused) return;
     const timer = setInterval(next, autoPlayMs);
@@ -50,39 +58,177 @@ export function BannerSlider({
   if (dismissed || total === 0) return null;
 
   const banner = banners[current];
+  const isImageOnly = isImageOnlyBanner(banner);
 
-  const content = (
+  return (
     <div
-      className={cn(
-        "relative w-full overflow-hidden rounded-2xl transition-all duration-500",
-        className
-      )}
-      style={{ backgroundColor: banner.bgColor, color: banner.textColor }}
+      className={cn("relative w-full overflow-hidden rounded-2xl", className)}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      {/* Background image */}
+      {/* ── Mode A: Image-only (iklan eksternal / sponsor) ──── */}
+      {isImageOnly ? (
+        <ImageBanner
+          banner={banner}
+          dismissable={dismissable}
+          onDismiss={() => setDismissed(true)}
+          navigation={
+            total > 1 ? (
+              <BannerNav
+                current={current}
+                total={total}
+                onPrev={prev}
+                onNext={next}
+                onDot={setCurrent}
+              />
+            ) : null
+          }
+        />
+      ) : (
+        /* ── Mode B: Text + color (promo/announcement) ─────── */
+        <TextBanner
+          banner={banner}
+          dismissable={dismissable}
+          onDismiss={() => setDismissed(true)}
+          navigation={
+            total > 1 ? (
+              <BannerNav
+                current={current}
+                total={total}
+                onPrev={prev}
+                onNext={next}
+                onDot={setCurrent}
+              />
+            ) : null
+          }
+        />
+      )}
+
+      {/* Progress bar */}
+      {total > 1 && !paused && (
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10 pointer-events-none">
+          <div
+            key={`${current}-progress`}
+            className="h-full bg-white/60"
+            style={{
+              animation: `progressBar ${autoPlayMs}ms linear forwards`,
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Image-only banner (iklan eksternal/sponsor) ─────────────────
+function ImageBanner({
+  banner,
+  dismissable,
+  onDismiss,
+  navigation,
+}: {
+  banner: Banner;
+  dismissable: boolean;
+  onDismiss: () => void;
+  navigation: React.ReactNode;
+}) {
+  const inner = (
+    <div className="relative w-full">
+      {/* Gambar banner penuh */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={banner.imageUrl!}
+        alt={banner.title}
+        className="w-full object-cover rounded-2xl max-h-[200px] sm:max-h-[280px]"
+        loading="lazy"
+      />
+
+      {/* Label "Iklan" / "Sponsor" */}
+      <span className="absolute top-2 left-2 text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded backdrop-blur-sm">
+        Iklan
+      </span>
+
+      {/* Tombol kunjungi (opsional, jika ada linkLabel) */}
+      {banner.linkUrl && (
+        <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+          <span className="flex items-center gap-1 bg-white/90 hover:bg-white text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full shadow transition-colors">
+            <ExternalLink size={11} />
+            {banner.linkLabel || "Kunjungi"}
+          </span>
+        </div>
+      )}
+
+      {/* Controls overlay */}
+      <div className="absolute top-2 right-2 flex items-center gap-1">
+        {navigation}
+        {dismissable && (
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDismiss(); }}
+            className="w-6 h-6 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+            aria-label="Tutup iklan"
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  if (banner.linkUrl) {
+    return (
+      <Link
+        href={banner.linkUrl}
+        target={banner.linkUrl.startsWith("http") ? "_blank" : undefined}
+        rel="noopener noreferrer sponsored"
+        className="block"
+        aria-label={`Iklan: ${banner.title}`}
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  return inner;
+}
+
+// ── Text banner (promo/announcement) ───────────────────────────
+function TextBanner({
+  banner,
+  dismissable,
+  onDismiss,
+  navigation,
+}: {
+  banner: Banner;
+  dismissable: boolean;
+  onDismiss: () => void;
+  navigation: React.ReactNode;
+}) {
+  return (
+    <div
+      className="relative rounded-2xl overflow-hidden"
+      style={{ backgroundColor: banner.bgColor, color: banner.textColor }}
+    >
+      {/* Background image with overlay */}
       {banner.imageUrl && (
         <div className="absolute inset-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={banner.imageUrl}
             alt=""
-            className="w-full h-full object-cover opacity-20"
+            className="w-full h-full object-cover opacity-25"
             aria-hidden="true"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
         </div>
       )}
 
-      {/* Content */}
       <div className="relative flex items-center justify-between px-5 py-4 gap-4">
         <div className="flex-1 min-w-0">
           <p className="font-bold text-sm sm:text-base leading-tight" style={{ color: banner.textColor }}>
             {banner.title}
           </p>
           {banner.subtitle && (
-            <p className="text-xs sm:text-sm mt-0.5 opacity-80 line-clamp-1" style={{ color: banner.textColor }}>
+            <p className="text-xs sm:text-sm mt-0.5 opacity-80 line-clamp-1">
               {banner.subtitle}
             </p>
           )}
@@ -95,40 +241,16 @@ export function BannerSlider({
               target={banner.linkUrl.startsWith("http") ? "_blank" : undefined}
               rel="noopener noreferrer"
               className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors whitespace-nowrap"
-              style={{ color: banner.textColor }}
             >
               {banner.linkLabel}
             </Link>
           )}
-
-          {/* Navigation */}
-          {total > 1 && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={(e) => { e.preventDefault(); prev(); }}
-                className="w-6 h-6 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/40 transition-colors"
-                aria-label="Banner sebelumnya"
-              >
-                <ChevronLeft size={12} />
-              </button>
-              <span className="text-xs opacity-60 tabular-nums w-8 text-center">
-                {current + 1}/{total}
-              </span>
-              <button
-                onClick={(e) => { e.preventDefault(); next(); }}
-                className="w-6 h-6 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/40 transition-colors"
-                aria-label="Banner berikutnya"
-              >
-                <ChevronRight size={12} />
-              </button>
-            </div>
-          )}
-
+          {navigation}
           {dismissable && (
             <button
-              onClick={() => setDismissed(true)}
+              onClick={onDismiss}
               className="w-6 h-6 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/40 transition-colors"
-              aria-label="Tutup banner"
+              aria-label="Tutup"
             >
               <X size={12} />
             </button>
@@ -136,42 +258,51 @@ export function BannerSlider({
         </div>
       </div>
 
-      {/* Progress bar */}
-      {total > 1 && !paused && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10">
-          <div
-            key={`${current}-${autoPlayMs}`}
-            className="h-full bg-white/50 animate-progress-bar"
-            style={{ animationDuration: `${autoPlayMs}ms` }}
-          />
-        </div>
-      )}
-
       {/* Dot indicators */}
-      {total > 1 && (
-        <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1">
-          {banners.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrent(i)}
-              className={cn(
-                "w-1.5 h-1.5 rounded-full transition-all",
-                i === current ? "bg-white scale-125" : "bg-white/40"
-              )}
-              aria-label={`Banner ${i + 1}`}
-            />
-          ))}
-        </div>
-      )}
+      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1 pointer-events-none">
+        {/* rendered by parent nav */}
+      </div>
     </div>
   );
-
-  // Wrap in link if banner has a link but no link label button
-  return content;
 }
 
-// ── Async loader wrapper ────────────────────────────────────────
-export function BannerSliderLoader({ position }: { position: string }) {
+// ── Navigation dots + arrows ────────────────────────────────────
+function BannerNav({
+  current,
+  total,
+  onPrev,
+  onNext,
+  onDot,
+}: {
+  current: number;
+  total: number;
+  onPrev: () => void;
+  onNext: () => void;
+  onDot: (i: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onPrev(); }}
+        className="w-5 h-5 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
+      >
+        <ChevronLeft size={10} />
+      </button>
+      <span className="text-[10px] text-white/70 tabular-nums w-7 text-center">
+        {current + 1}/{total}
+      </span>
+      <button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onNext(); }}
+        className="w-5 h-5 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
+      >
+        <ChevronRight size={10} />
+      </button>
+    </div>
+  );
+}
+
+// ── Async loader ────────────────────────────────────────────────
+export function BannerSliderLoader({ position, dismissable = true }: { position: string; dismissable?: boolean }) {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -184,5 +315,5 @@ export function BannerSliderLoader({ position }: { position: string }) {
 
   if (!loaded || banners.length === 0) return null;
 
-  return <BannerSlider banners={banners} dismissable className="mb-4" />;
+  return <BannerSlider banners={banners} dismissable={dismissable} className="mb-4" />;
 }

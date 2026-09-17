@@ -32,9 +32,9 @@ const POSITIONS = [
 ];
 
 const TYPES = [
-  { value: "PROMO",        label: "Promosi" },
-  { value: "ANNOUNCEMENT", label: "Pengumuman" },
-  { value: "SPONSOR",      label: "Sponsor" },
+  { value: "PROMO",        label: "Promosi (teks + warna)" },
+  { value: "ANNOUNCEMENT", label: "Pengumuman (teks + warna)" },
+  { value: "SPONSOR",      label: "Iklan Eksternal / Sponsor (gambar penuh)" },
 ];
 
 const emptyForm = {
@@ -141,13 +141,21 @@ export function BannerManager({ banners }: BannerManagerProps) {
 
   // Preview mini
   const Preview = () => (
-    <div
-      className="rounded-xl px-4 py-3 text-sm font-medium"
-      style={{ backgroundColor: form.bgColor, color: form.textColor }}
-    >
-      <p className="font-bold">{form.title || "Judul Banner"}</p>
-      {form.subtitle && <p className="text-xs opacity-80 mt-0.5">{form.subtitle}</p>}
-    </div>
+    form.type === "SPONSOR" && form.imageUrl ? (
+      <div className="rounded-xl overflow-hidden max-h-28 relative">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={form.imageUrl} alt="Preview" className="w-full object-cover rounded-xl max-h-28" />
+        <span className="absolute top-1.5 left-1.5 text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded">Iklan</span>
+      </div>
+    ) : (
+      <div
+        className="rounded-xl px-4 py-3 text-sm font-medium"
+        style={{ backgroundColor: form.bgColor, color: form.textColor }}
+      >
+        <p className="font-bold">{form.title || "Judul Banner"}</p>
+        {form.subtitle && <p className="text-xs opacity-80 mt-0.5">{form.subtitle}</p>}
+      </div>
+    )
   );
 
   return (
@@ -296,6 +304,18 @@ export function BannerManager({ banners }: BannerManagerProps) {
               <select value={form.type} onChange={(e) => setForm(f => ({ ...f, type: e.target.value }))} className={inputClass}>
                 {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
+              {form.type === "SPONSOR" && (
+                <div className="mt-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 text-xs text-blue-700 space-y-1">
+                  <p className="font-semibold">📢 Mode Iklan Eksternal (Sponsor)</p>
+                  <p>Gambar akan tampil penuh sebagai banner iklan yang bisa diklik.</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-blue-600">
+                    <li>Isi <strong>URL Gambar</strong> dengan link gambar banner toko (JPG/PNG, rasio 3:1 atau 4:1)</li>
+                    <li>Isi <strong>URL Link</strong> dengan alamat toko (Tokopedia, Shopee, website, dll)</li>
+                    <li>Label tombol opsional — gambar sudah bisa diklik</li>
+                    <li>Gambar host di Google Drive, Imgur, atau CDN publik</li>
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div>

@@ -1,13 +1,22 @@
 import Link from "next/link";
-import { config } from "@/config";
+import { getBranding } from "@/lib/utils/branding";
 import { cn } from "@/lib/utils/cn";
+import { Instagram, Facebook, Youtube, Music2, Globe } from "lucide-react";
 
 interface SiteFooterProps {
   dark?: boolean;
 }
 
-export function SiteFooter({ dark = false }: SiteFooterProps) {
-  const year = new Date().getFullYear();
+export async function SiteFooter({ dark = false }: SiteFooterProps) {
+  const branding = await getBranding();
+
+  const socialLinks = [
+    { href: branding.socialInstagram, icon: Instagram, label: "Instagram" },
+    { href: branding.socialFacebook,  icon: Facebook,  label: "Facebook" },
+    { href: branding.socialYoutube,   icon: Youtube,   label: "YouTube" },
+    { href: branding.socialTiktok,    icon: Music2,    label: "TikTok" },
+    { href: branding.brandWebsite,    icon: Globe,     label: "Website" },
+  ].filter((s) => !!s.href);
 
   return (
     <footer
@@ -18,20 +27,35 @@ export function SiteFooter({ dark = false }: SiteFooterProps) {
           : "bg-white border-gray-100 text-gray-500"
       )}
     >
-      <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-        <p>
-          &copy; {year}{" "}
-          <Link
-            href="/"
-            className="hover:text-gray-300 transition-colors font-medium"
-          >
-            {config.app.brandName}
-          </Link>
-          . All rights reserved.
-        </p>
-        <p className="text-xs opacity-60">
-          Powered by Nusantara Event Gallery
-        </p>
+      <div className="max-w-6xl mx-auto px-4 space-y-4">
+        {/* Social links */}
+        {socialLinks.length > 0 && (
+          <div className="flex items-center justify-center gap-4">
+            {socialLinks.map(({ href, icon: Icon, label }) => (
+              <Link
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "transition-colors",
+                  dark
+                    ? "text-gray-600 hover:text-gray-300"
+                    : "text-gray-400 hover:text-gray-600"
+                )}
+                aria-label={label}
+              >
+                <Icon size={18} />
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Footer text */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
+          <p>{branding.footerText}</p>
+          <p className="text-xs opacity-50">Powered by Nusantara Event Gallery</p>
+        </div>
       </div>
     </footer>
   );

@@ -6,12 +6,12 @@ import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
 import { BannerSlider } from "@/components/shared/BannerSlider";
 import { AdBlock } from "@/components/shared/AdBlock";
-import { config } from "@/config";
+import { getBranding } from "@/lib/utils/branding";
 
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const [{ data: events }, bannersTop, bannersBottom, adSlots] = await Promise.all([
+  const [{ data: events }, bannersTop, bannersBottom, adSlots, branding] = await Promise.all([
     eventRepository.listPublished({ page: 1, pageSize: 12 }),
     prisma.banner.findMany({
       where: { isActive: true, position: "HOME_TOP" },
@@ -24,9 +24,12 @@ export default async function HomePage() {
     prisma.adSlot.findMany({
       where: { isActive: true, position: "HOME_BOTTOM" },
     }),
+    getBranding(),
   ]);
 
   const homeBottomAd = adSlots[0] ?? null;
+  const heroTitle = branding.heroTitle || "Event Documentation Gallery";
+  const heroSubtitle = branding.heroSubtitle || "Temukan, lihat, dan unduh foto dokumentasi event dengan mudah. Tidak perlu login, langsung akses.";
 
   return (
     <>
@@ -41,16 +44,21 @@ export default async function HomePage() {
 
           <div className="relative max-w-6xl mx-auto px-4 py-24 md:py-32 text-center">
             <p className="text-brand-400 text-sm font-semibold tracking-widest uppercase mb-4">
-              {config.app.brandName}
+              {branding.brandName}
             </p>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 text-balance">
-              Event Documentation
-              <br />
-              <span className="text-brand-400">Gallery</span>
+              {heroTitle.includes("Gallery") ? (
+                <>
+                  {heroTitle.replace("Gallery", "").trim()}
+                  <br />
+                  <span className="text-brand-400">Gallery</span>
+                </>
+              ) : (
+                heroTitle
+              )}
             </h1>
             <p className="text-lg text-gray-300 max-w-2xl mx-auto mb-10">
-              Temukan, lihat, dan unduh foto dokumentasi event dengan mudah.
-              Tidak perlu login, langsung akses.
+              {heroSubtitle}
             </p>
             {events.length > 0 && (
               <Link

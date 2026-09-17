@@ -80,7 +80,6 @@ export function SearchResults({
       const params = new URLSearchParams({ eventSlug });
       if (query) params.set("q", query);
       if (dayFilter) params.set("dayNumber", dayFilter);
-      if (albumFilter) params.set("albumSlug", albumFilter);
       params.set("page", String(page));
       params.set("pageSize", "48");
 

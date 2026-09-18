@@ -12,11 +12,6 @@ import { PageBannersTop } from "@/components/shared/PageBanners";
 
 export const dynamic = "force-dynamic";
 
-interface Props {
-  params: Promise<{ eventSlug: string }>;
-  searchParams: Promise<{ q?: string; day?: string; album?: string; page?: string }>;
-}
-
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { eventSlug } = await params;
   const { q } = await searchParams;

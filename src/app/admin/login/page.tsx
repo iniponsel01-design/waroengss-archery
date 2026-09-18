@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
 
+// Force dynamic — page reads searchParams (redirect param after login)
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Admin Login",
   robots: { index: false, follow: false },

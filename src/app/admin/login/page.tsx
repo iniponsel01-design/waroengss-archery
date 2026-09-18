@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
 
 export const metadata: Metadata = {
@@ -14,7 +15,9 @@ export default function AdminLoginPage() {
           <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
           <p className="text-gray-400 text-sm mt-1">Waroeng SS Archery Gallery</p>
         </div>
-        <AdminLoginForm />
+        <Suspense fallback={<div className="h-40 bg-gray-900 rounded-xl animate-pulse" />}>
+          <AdminLoginForm />
+        </Suspense>
       </div>
     </main>
   );

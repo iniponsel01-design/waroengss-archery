@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import Link from "next/link";
+import { Suspense } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { LogFilters } from "@/components/admin/LogFilters";
@@ -86,12 +87,14 @@ export default async function AdminLogsPage({ searchParams }: Props) {
       </div>
 
       {/* Filters — client component for interactivity */}
-      <LogFilters
-        actions={actions.map((a) => a.action)}
-        users={users}
-        currentAction={actionFilter}
-        currentUser={userFilter}
-      />
+      <Suspense fallback={<div className="h-12 bg-white rounded-2xl border border-gray-100 animate-pulse" />}>
+        <LogFilters
+          actions={actions.map((a) => a.action)}
+          users={users}
+          currentAction={actionFilter}
+          currentUser={userFilter}
+        />
+      </Suspense>
 
       {/* Log table */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">

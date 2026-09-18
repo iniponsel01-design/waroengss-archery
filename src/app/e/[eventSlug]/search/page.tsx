@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Search } from "lucide-react";
+import { Suspense } from "react";
 import { eventRepository } from "@/repositories/event.repository";
 import { prisma } from "@/lib/db/client";
 import { SiteHeader } from "@/components/shared/SiteHeader";
@@ -77,16 +78,18 @@ export default async function SearchPage({ params, searchParams }: Props) {
 
         {/* Search Results */}
         <section className="max-w-7xl mx-auto px-4 py-6">
-          <SearchResults
-            eventId={event.id}
-            eventSlug={eventSlug}
-            query={q}
-            dayFilter={day}
-            albumFilter={albumFilter}
-            page={page ? parseInt(page) : 1}
-            days={days}
-            albums={albums}
-          />
+          <Suspense fallback={<div className="h-64 flex items-center justify-center text-gray-500">Memuat...</div>}>
+            <SearchResults
+              eventId={event.id}
+              eventSlug={eventSlug}
+              query={q}
+              dayFilter={day}
+              albumFilter={albumFilter}
+              page={page ? parseInt(page) : 1}
+              days={days}
+              albums={albums}
+            />
+          </Suspense>
         </section>
       </main>
       <SiteFooter dark />

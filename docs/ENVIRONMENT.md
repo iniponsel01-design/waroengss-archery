@@ -2,7 +2,18 @@
 
 Semua environment variables didefinisikan di `.env.local` (development) atau Vercel Environment Variables (production).
 
-**Jangan pernah commit `.env.local` ke Git.**
+**Jangan pernah commit `.env.local` atau `service-account.json` ke Git.**
+
+---
+
+## File Environment
+
+| File | Digunakan oleh | Keterangan |
+|------|----------------|------------|
+| `.env.local` | Next.js (dev & build) | Semua variabel app |
+| `.env` | Prisma CLI saja | Hanya `DATABASE_URL` dan `DIRECT_URL` |
+
+> Prisma CLI (`db:push`, `db:seed`, `db:studio`) membaca `.env`, bukan `.env.local`. Karena itu kedua file harus ada dan nilainya sinkron.
 
 ---
 
@@ -10,52 +21,114 @@ Semua environment variables didefinisikan di `.env.local` (development) atau Ver
 
 ### Database
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string (pooled) | `postgresql://user:pass@host:5432/db?pgbouncer=true` |
-| `DIRECT_URL` | PostgreSQL direct connection (untuk migrasi) | `postgresql://user:pass@host:5432/db` |
+| Variable | Deskripsi | Port |
+|----------|-----------|------|
+| `DATABASE_URL` | Connection string pooled (untuk runtime app) | 6543 |
+| `DIRECT_URL` | Connection string direct (untuk Prisma migrate) | 5432 |
+
+Format Supabase:
+```
+DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+DIRECT_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres"
+```
+
+> **Karakter khusus di password:** Jika password mengandung `@`, encode menjadi `%40`. Karakter lain yang perlu di-encode: `#` → `%23`, `%` → `%25`, `?` → `%3F`.
 
 ### Authentication
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `JWT_SECRET` | Secret untuk JWT signing | Generate: `openssl rand -base64 64` |
+| Variable | Deskripsi |
+|----------|-----------|
+| `JWT_SECRET` | Secret untuk signing JWT session token |
+
+Generate JWT_SECRET:
+```bash
+openssl rand -base64 64
+```
 
 ---
 
 ## Google Drive Variables
 
-| Variable | Description |
-|----------|-------------|
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | Service account credentials sebagai JSON string (production) |
-| `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` | Path ke file JSON key (development, default: `./service-account.json`) |
+| Variable | Digunakan di | Deskripsi |
+|----------|-------------|-----------|
+| `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` | Development | Path ke file JSON key, default: `./service-account.json` |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Production (Vercel) | Isi file JSON sebagai string satu baris |
 
-Gunakan salah satu. Di production, selalu gunakan `GOOGLE_SERVICE_ACCOUNT_JSON` sebagai environment variable.
+Cara membuat nilai `GOOGLE_SERVICE_ACCOUNT_JSON` untuk Vercel:
+```bash
+# macOS/Linux — output satu baris tanpa whitespace
+cat service-account.json | tr -d '\n'
+```
+
+Paste hasil output tersebut sebagai nilai environment variable di Vercel.
+
+---
+
+## Public Variables (NEXT_PUBLIC_*)
+
+Variabel dengan prefix `NEXT_PUBLIC_` akan tersedia di browser (client-side).
+
+| Variable | Default | Deskripsi |
+|----------|---------|-----------|
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | URL lengkap aplikasi |
+| `NEXT_PUBLIC_APP_NAME` | `Waroeng SS Archery Gallery` | Nama aplikasi (dipakai di metadata) |
+| `NEXT_PUBLIC_BRAND_NAME` | `Waroeng SS Archery` | Nama brand (dipakai di header/footer) |
+
+Di production, `NEXT_PUBLIC_APP_URL` harus diisi dengan URL Vercel yang aktif:
+```
+NEXT_PUBLIC_APP_URL=https://waroengss-archery.vercel.app
+```
 
 ---
 
 ## Optional Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Public URL aplikasi |
-| `NEXT_PUBLIC_APP_NAME` | `Waroeng SS Archery Gallery` | Nama aplikasi |
-| `NEXT_PUBLIC_BRAND_NAME` | `Waroeng SS Archery` | Nama brand |
+| Variable | Default | Deskripsi |
+|----------|---------|-----------|
+| `NODE_ENV` | `development` | Set ke `production` di Vercel |
 | `ADMIN_SETUP_TOKEN` | — | Token untuk membuat admin pertama via API |
-| `RATE_LIMIT_MAX_REQUESTS` | `100` | Max requests per window |
-| `RATE_LIMIT_WINDOW_MS` | `60000` | Rate limit window (ms) |
 
 ---
 
-## Cara Set di Vercel
+## Template `.env.local`
 
-1. Buka Vercel project → **Settings → Environment Variables**
-2. Tambahkan setiap variabel
-3. Set environment: **Production**, **Preview**, atau keduanya
-4. Redeploy setelah menambah variabel baru
+```bash
+# Database (Supabase)
+DATABASE_URL="postgresql://postgres.REF:PASS%40@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+DIRECT_URL="postgresql://postgres.REF:PASS%40@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+
+# Auth
+JWT_SECRET="ganti-dengan-secret-yang-kuat"
+
+# Google Drive (development — pakai file)
+GOOGLE_SERVICE_ACCOUNT_KEY_FILE=./service-account.json
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_NAME="Waroeng SS Archery Gallery"
+NEXT_PUBLIC_BRAND_NAME="Waroeng SS Archery"
+```
+
+## Template `.env` (untuk Prisma CLI)
+
+```bash
+# Sama dengan .env.local, hanya bagian database
+DATABASE_URL="postgresql://postgres.REF:PASS%40@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+DIRECT_URL="postgresql://postgres.REF:PASS%40@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+```
 
 ---
 
-## .env.example
+## Set di Vercel
 
-File `.env.example` sudah tersedia di root project sebagai template. Tidak mengandung nilai sensitif.
+Via dashboard:
+1. Buka Vercel → Project → **Settings → Environment Variables**
+2. Klik **Add New**
+3. Isi Key, Value, pilih environment (Production / Preview / Development)
+4. Klik **Save**
+5. **Redeploy** agar perubahan aktif
+
+Via CLI:
+```bash
+echo "nilai" | vercel env add NAMA_VARIABEL production --token <token>
+```

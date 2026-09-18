@@ -10,6 +10,8 @@ Local Build (macOS) → .vercel/output/ → vercel deploy --prebuilt → Vercel 
 
 Deployment dilakukan secara **manual** dengan build lokal terlebih dahulu, kemudian upload prebuilt output ke Vercel. Cara ini dipilih untuk menghindari masalah path yang muncul saat deploy langsung dari source.
 
+Untuk setup Vercel dari awal (akun baru, project baru), lihat [VERCEL_SETUP.md](./VERCEL_SETUP.md).
+
 ---
 
 ## Repositories

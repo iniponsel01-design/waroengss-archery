@@ -84,7 +84,7 @@ npm run db:seed
 
 ## 4. Google Drive Setup
 
-Lihat [GOOGLE_DRIVE_SETUP.md](./GOOGLE_DRIVE_SETUP.md) untuk panduan lengkap.
+Lihat [GOOGLE_DRIVE_SETUP.md](./GOOGLE_DRIVE_SETUP.md) untuk panduan lengkap setup Google Cloud, service account, dan sharing folder.
 
 Singkatnya:
 1. Buat Service Account di Google Cloud Console

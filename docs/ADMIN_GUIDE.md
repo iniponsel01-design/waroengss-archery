@@ -6,7 +6,7 @@ Panduan penggunaan Admin Panel untuk non-teknis.
 
 ## Login
 
-Buka: `https://your-domain.com/admin/login`
+Buka: `https://waroengss-archery.vercel.app/admin/login`
 
 ---
 
@@ -75,7 +75,7 @@ Di halaman Edit Event:
 
 Event langsung dapat diakses publik di:
 ```
-https://your-domain.com/e/nama-event
+https://waroengss-archery.vercel.app/e/nama-event
 ```
 
 ---

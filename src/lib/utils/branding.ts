@@ -19,6 +19,7 @@ const BRANDING_KEYS = [
   "social_tiktok",
   "hero_title",
   "hero_subtitle",
+  "hero_bg_url",
 ];
 
 export interface Branding {
@@ -34,6 +35,7 @@ export interface Branding {
   socialTiktok: string;
   heroTitle: string;
   heroSubtitle: string;
+  heroBgUrl: string;
 }
 
 export async function getBranding(): Promise<Branding> {
@@ -58,5 +60,6 @@ export async function getBranding(): Promise<Branding> {
     socialTiktok:     map.social_tiktok    ?? "",
     heroTitle:        map.hero_title       ?? "",
     heroSubtitle:     map.hero_subtitle    ?? "",
+    heroBgUrl:        map.hero_bg_url      ?? "",
   };
 }

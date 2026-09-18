@@ -27,6 +27,7 @@ export function BrandingForm({ settings }: BrandingFormProps) {
     social_tiktok:    settings.social_tiktok     ?? "",
     hero_title:       settings.hero_title        ?? "",
     hero_subtitle:    settings.hero_subtitle     ?? "",
+    hero_bg_url:      settings.hero_bg_url       ?? "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -237,6 +238,40 @@ export function BrandingForm({ settings }: BrandingFormProps) {
             placeholder="Temukan, lihat, dan unduh foto dokumentasi event..."
             className={inputClass}
           />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">
+            URL Gambar Background Hero
+          </label>
+          <input
+            type="url"
+            value={form.hero_bg_url}
+            onChange={set("hero_bg_url")}
+            placeholder="https://lh3.googleusercontent.com/... atau URL gambar lainnya"
+            className={inputClass}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Gambar akan ditampilkan sebagai latar dengan overlay gelap transparan.
+            Bisa pakai URL dari Google Drive, CDN, atau mana saja.
+            Kosongkan untuk latar hitam solid.
+          </p>
+          {form.hero_bg_url && (
+            <div className="mt-3 relative h-28 rounded-xl overflow-hidden border border-gray-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={form.hero_bg_url}
+                alt="Hero background preview"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+              <div className="absolute inset-0 bg-gray-900/60 flex items-center justify-center">
+                <span className="text-white text-xs font-medium opacity-80">Preview background</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

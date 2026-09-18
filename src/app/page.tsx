@@ -30,6 +30,7 @@ export default async function HomePage() {
   const homeBottomAd = adSlots[0] ?? null;
   const heroTitle = branding.heroTitle || "Event Documentation Gallery";
   const heroSubtitle = branding.heroSubtitle || "Temukan, lihat, dan unduh foto dokumentasi event dengan mudah. Tidak perlu login, langsung akses.";
+  const heroBgUrl = branding.heroBgUrl || "";
 
   return (
     <>
@@ -38,8 +39,28 @@ export default async function HomePage() {
       <main className="min-h-screen">
         {/* Hero Section */}
         <section className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute inset-0 bg-[url('/images/pattern.svg')] bg-repeat opacity-20" />
+          {/* Background image (dinamis dari admin branding) */}
+          {heroBgUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={heroBgUrl}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full object-cover object-center"
+            />
+          )}
+
+          {/* Overlay — lebih gelap jika ada gambar, lebih tipis jika tidak ada */}
+          <div
+            className={`absolute inset-0 ${
+              heroBgUrl
+                ? "bg-gray-900/65"
+                : "opacity-10"
+            }`}
+          >
+            {!heroBgUrl && (
+              <div className="absolute inset-0 bg-[url('/images/pattern.svg')] bg-repeat opacity-20" />
+            )}
           </div>
 
           <div className="relative max-w-6xl mx-auto px-4 py-24 md:py-32 text-center">

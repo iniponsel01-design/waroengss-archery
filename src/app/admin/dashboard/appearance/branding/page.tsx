@@ -16,6 +16,7 @@ const BRANDING_KEYS = [
   "social_tiktok",
   "hero_title",
   "hero_subtitle",
+  "hero_bg_url",
 ];
 
 export default async function BrandingPage() {

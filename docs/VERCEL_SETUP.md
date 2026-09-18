@@ -14,6 +14,9 @@ Panduan lengkap setup Vercel dari awal hingga deployment production.
 | Team ID | `team_Qv9jFpl5WIx6OR3uiCwnv1YO` |
 | Production URL | https://waroengss-archery.vercel.app |
 
+> Token disimpan lokal di: `~/Library/Application Support/com.vercel.cli/auth.json`
+> Jika token expired (error 403), buat token baru di Vercel → Account Settings → Tokens → Create.
+
 ---
 
 ## 1. Install Vercel CLI

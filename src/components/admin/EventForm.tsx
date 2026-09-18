@@ -17,6 +17,7 @@ interface Event {
   status: string;
   seoTitle: string | null;
   seoDescription: string | null;
+  ogImageUrl: string | null;
 }
 
 interface EventFormProps {
@@ -38,6 +39,7 @@ export function EventForm({ event }: EventFormProps) {
     status: event?.status ?? "DRAFT",
     seoTitle: event?.seoTitle ?? "",
     seoDescription: event?.seoDescription ?? "",
+    ogImageUrl: event?.ogImageUrl ?? "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -65,6 +67,7 @@ export function EventForm({ event }: EventFormProps) {
         location: form.location || undefined,
         seoTitle: form.seoTitle || undefined,
         seoDescription: form.seoDescription || undefined,
+        ogImageUrl: form.ogImageUrl || undefined,
       };
 
       const url = isEditing
@@ -242,6 +245,33 @@ export function EventForm({ event }: EventFormProps) {
               placeholder="Deskripsi untuk mesin pencari (opsional)"
               maxLength={500}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              URL Gambar Cover Event
+            </label>
+            <input
+              type="url"
+              value={form.ogImageUrl}
+              onChange={(e) => setForm((f) => ({ ...f, ogImageUrl: e.target.value }))}
+              className={inputClass}
+              placeholder="https://lh3.googleusercontent.com/... atau URL gambar lainnya"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Tampil sebagai cover di kartu event di homepage. Bisa pakai URL dari Google Drive, CDN, atau mana saja.
+            </p>
+            {form.ogImageUrl && (
+              <div className="mt-2 rounded-xl overflow-hidden aspect-video relative border border-gray-100 bg-gray-900 max-w-xs">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.ogImageUrl}
+                  alt="Preview cover"
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              </div>
+            )}
           </div>
         </div>
       </details>

@@ -26,6 +26,7 @@ export const createEventSchema = z.object({
   timezone: z.string().default("Asia/Jakarta"),
   seoTitle: z.string().max(200).optional().nullable(),
   seoDescription: z.string().max(500).optional().nullable(),
+  ogImageUrl: z.string().url().optional().nullable().or(z.literal("")),
 });
 
 export const updateEventSchema = createEventSchema.partial().extend({

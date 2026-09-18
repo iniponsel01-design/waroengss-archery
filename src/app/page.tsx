@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { eventRepository } from "@/repositories/event.repository";
 import { prisma } from "@/lib/db/client";
-import { EventCard } from "@/components/gallery/EventCard";
+import { EventCard, getEventStatus } from "@/components/gallery/EventCard";
 import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
 import { BannerSlider } from "@/components/shared/BannerSlider";
@@ -31,6 +31,18 @@ export default async function HomePage() {
   const heroTitle = branding.heroTitle || "Event Documentation Gallery";
   const heroSubtitle = branding.heroSubtitle || "Temukan, lihat, dan unduh foto dokumentasi event dengan mudah. Tidak perlu login, langsung akses.";
   const heroBgUrl = branding.heroBgUrl || "";
+
+  // Tentukan label section berdasarkan komposisi status event
+  const now = new Date();
+  const hasOngoing = events.some(e =>
+    e.startDate && e.startDate <= now && (e.endDate ?? e.startDate) >= now
+  );
+  const hasUpcoming = events.some(e => e.startDate && e.startDate > now);
+  const sectionLabel = hasOngoing
+    ? "Event Berlangsung & Terbaru"
+    : hasUpcoming
+    ? "Upcoming & Event Terbaru"
+    : "Semua Event";
 
   return (
     <>
@@ -102,7 +114,7 @@ export default async function HomePage() {
         {/* Events Grid */}
         <section className="max-w-6xl mx-auto px-4 py-12">
           <div className="flex items-baseline justify-between mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">Event Terbaru</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{sectionLabel}</h2>
             <span className="text-sm text-gray-500">{events.length} event</span>
           </div>
 

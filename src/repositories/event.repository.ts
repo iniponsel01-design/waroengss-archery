@@ -48,18 +48,20 @@ export const eventRepository = {
 
   /**
    * List published events (public homepage)
+   * Sort: upcoming → ongoing → past
+   * - Upcoming: startDate > now (paling dekat dulu)
+   * - Ongoing:  startDate <= now <= endDate
+   * - Past:     endDate < now (paling baru dulu)
+   * - No date:  di akhir
    */
   async listPublished(options?: { page?: number; pageSize?: number }) {
     const page = options?.page ?? 1;
     const pageSize = options?.pageSize ?? 10;
-    const skip = (page - 1) * pageSize;
 
-    const [data, total] = await prisma.$transaction([
+    // Ambil semua published untuk sorting aplikasi-level
+    const [allData, total] = await prisma.$transaction([
       prisma.event.findMany({
         where: { status: "PUBLISHED" },
-        orderBy: { startDate: "desc" },
-        skip,
-        take: pageSize,
         include: {
           _count: {
             select: {
@@ -71,6 +73,34 @@ export const eventRepository = {
       }),
       prisma.event.count({ where: { status: "PUBLISHED" } }),
     ]);
+
+    const now = new Date();
+
+    // Klasifikasi event berdasarkan tanggal
+    const getGroup = (e: typeof allData[0]) => {
+      const start = e.startDate;
+      const end = e.endDate ?? e.startDate;
+      if (!start) return 3; // no date — paling bawah
+      if (start > now) return 0; // upcoming
+      if (end && end >= now) return 1; // ongoing
+      return 2; // past
+    };
+
+    const sorted = [...allData].sort((a, b) => {
+      const ga = getGroup(a);
+      const gb = getGroup(b);
+      if (ga !== gb) return ga - gb;
+      // Dalam grup sama:
+      // upcoming & ongoing → startDate ASC (paling dekat dulu)
+      // past → startDate DESC (paling baru dulu)
+      const aDate = a.startDate?.getTime() ?? 0;
+      const bDate = b.startDate?.getTime() ?? 0;
+      return ga <= 1 ? aDate - bDate : bDate - aDate;
+    });
+
+    // Pagination manual setelah sort
+    const skip = (page - 1) * pageSize;
+    const data = sorted.slice(skip, skip + pageSize);
 
     return { data, total, page, pageSize };
   },
@@ -125,6 +155,7 @@ export const eventRepository = {
         timezone: data.timezone,
         seoTitle: data.seoTitle,
         seoDescription: data.seoDescription,
+        ogImageUrl: data.ogImageUrl || null,
         status: "DRAFT",
       },
     });

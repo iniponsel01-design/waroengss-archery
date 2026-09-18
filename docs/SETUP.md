@@ -20,6 +20,8 @@ npm install --legacy-peer-deps
 
 > `--legacy-peer-deps` diperlukan karena beberapa package memiliki peer dependency conflict.
 
+Untuk setup GitHub dari awal (inisialisasi repo, fork ke akun Vercel, PAT), lihat [GITHUB_SETUP.md](./GITHUB_SETUP.md).
+
 ---
 
 ## 2. Environment Variables

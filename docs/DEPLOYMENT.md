@@ -31,6 +31,8 @@ git push origin main
 git push https://TOKEN@github.com/iniponsel01-design/waroengss-archery.git main --force
 ```
 
+Untuk setup lengkap GitHub (inisialisasi repo, fork, PAT, remote config), lihat [GITHUB_SETUP.md](./GITHUB_SETUP.md).
+
 ---
 
 ## Vercel Project

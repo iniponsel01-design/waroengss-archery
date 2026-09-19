@@ -415,15 +415,20 @@ npm run typecheck
 git add .
 git commit -m "feat: deskripsi perubahan"
 
-# 5. Push ke kedua repo
-git push origin main
-git push fork main --force
-# atau: bash scripts/sync-repos.sh
+# 5. Push ke kedua repo — Vercel auto-deploy dari fork
+git push origin main          # primary (holisahmad)
+git push fork main --force    # fork (iniponsel01) → trigger auto-deploy Vercel
 
-# 6. Build lokal
+# Atau pakai script sekaligus:
+bash scripts/sync-repos.sh "feat: deskripsi perubahan"
+```
+
+Vercel akan otomatis build & deploy dari fork. Pantau progress di:
+`https://vercel.com/waroengss-archery/waroengss-archery`
+
+**Deploy cepat (manual prebuilt)** — pakai jika butuh deploy darurat atau auto-deploy gagal:
+```bash
 VERCEL_TOKEN=<token> vercel build --prod --yes
-
-# 7. Deploy
 vercel deploy --prebuilt --prod --token <token>
 ```
 

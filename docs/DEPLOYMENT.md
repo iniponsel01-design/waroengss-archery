@@ -3,12 +3,20 @@
 ## Overview
 
 ```
-Local Build (macOS) → .vercel/output/ → vercel deploy --prebuilt → Vercel (Linux)
-                                          ↑
-                              GitHub push (holisahmad + iniponsel01-design fork)
+Edit kode lokal
+      ↓
+git push origin main          → github.com/holisahmad/waroengss-archery
+      ↓
+git push fork main --force    → github.com/iniponsel01-design/waroengss-archery
+      ↓
+Vercel auto-detect push       → build & deploy otomatis (~3–5 menit)
+      ↓
+https://waroengss-archery.vercel.app  live
 ```
 
-Deployment dilakukan secara **manual** dengan build lokal terlebih dahulu, kemudian upload prebuilt output ke Vercel. Cara ini dipilih untuk menghindari masalah path yang muncul saat deploy langsung dari source.
+Ada dua cara deploy:
+- **Auto-deploy** (default): push ke fork → Vercel build otomatis di server
+- **Manual (prebuilt)**: build lokal → upload `.vercel/output/` → deploy ~25 detik
 
 Untuk setup Vercel dari awal (akun baru, project baru), lihat [VERCEL_SETUP.md](./VERCEL_SETUP.md).
 
@@ -16,20 +24,10 @@ Untuk setup Vercel dari awal (akun baru, project baru), lihat [VERCEL_SETUP.md](
 
 ## Repositories
 
-| Repo | URL | Fungsi |
-|------|-----|--------|
-| Primary | `https://github.com/holisahmad/waroengss-archery` | Source of truth |
-| Fork (Vercel) | `https://github.com/iniponsel01-design/waroengss-archery` | Terhubung ke akun Vercel |
-
-Push ke keduanya setelah setiap perubahan:
-
-```bash
-# Push ke primary repo
-git push origin main
-
-# Push ke fork (Vercel account)
-git push https://TOKEN@github.com/iniponsel01-design/waroengss-archery.git main --force
-```
+| Repo | URL | Akun | Fungsi |
+|------|-----|------|--------|
+| Primary | `https://github.com/holisahmad/waroengss-archery` | holisahmad | Source of truth |
+| Fork (Vercel) | `https://github.com/iniponsel01-design/waroengss-archery` | iniponsel01-design | Terhubung ke Vercel, trigger auto-deploy |
 
 Untuk setup lengkap GitHub (inisialisasi repo, fork, PAT, remote config), lihat [GITHUB_SETUP.md](./GITHUB_SETUP.md).
 
@@ -42,11 +40,64 @@ Untuk setup lengkap GitHub (inisialisasi repo, fork, PAT, remote config), lihat 
 | Project ID | `prj_v4SODZeFGEnQkwJOGE2ieSXWUxJD` |
 | Team | `waroengss-archery` (team_Qv9jFpl5WIx6OR3uiCwnv1YO) |
 | Production URL | https://waroengss-archery.vercel.app |
-| Account | `iniponsel01-design` |
+| Account | `iniponsel01-design` (iniponsel01@gmail.com) |
+| GitHub connected | `iniponsel01-design/waroengss-archery` branch `main` |
 
 ---
 
-## Alur Deploy
+## Git Author Config
+
+Commit author **harus** cocok dengan email akun GitHub yang terhubung ke Vercel (`iniponsel01@gmail.com`), jika tidak Vercel menolak deployment dengan error "commit author email is not valid".
+
+Pastikan git config lokal di project sudah benar:
+
+```bash
+# Cek config lokal saat ini
+git config --local user.email
+git config --local user.name
+
+# Set jika belum benar
+git config --local user.email "iniponsel01@gmail.com"
+git config --local user.name "iniponsel01-design"
+```
+
+> Config ini bersifat lokal (hanya berlaku di folder project ini), tidak mengubah config global.
+
+---
+
+## Cara 1 — Auto-Deploy (Recommended)
+
+Push ke fork → Vercel otomatis build dan deploy. Tidak perlu token atau CLI.
+
+```bash
+# 1. Commit perubahan
+git add .
+git commit -m "feat: deskripsi perubahan"
+
+# 2. Push ke primary repo (holisahmad)
+git push origin main
+
+# 3. Push ke fork (trigger Vercel auto-deploy)
+git push fork main --force
+```
+
+Atau pakai script sekaligus:
+
+```bash
+bash scripts/sync-repos.sh "feat: deskripsi perubahan"
+```
+
+Script ini otomatis commit + push ke `origin` + push ke `fork`.
+
+**Waktu build:** ~3–5 menit (install deps + prisma generate + next build di server Vercel)
+
+Pantau progress di: https://vercel.com/waroengss-archery/waroengss-archery
+
+---
+
+## Cara 2 — Manual Prebuilt (Backup / Deploy Cepat)
+
+Pakai ini jika butuh deploy cepat (~25 detik) atau auto-deploy gagal.
 
 ### Langkah 1 — Pastikan `.vercel/project.json` ada
 
@@ -83,6 +134,20 @@ Output sukses:
 ✓ Ready in 21s
 ```
 
+> Token Vercel: buat di Vercel → Account Settings → Tokens → Create.
+> Jika token error 403 (expired), buat token baru dan update di `~/Library/Application Support/com.vercel.cli/auth.json`.
+
+---
+
+## Perbandingan Dua Cara Deploy
+
+| | Auto-Deploy | Manual Prebuilt |
+|-|-------------|-----------------|
+| Cara | Push ke fork | `vercel build` + `vercel deploy` |
+| Waktu | ~3–5 menit | ~2 menit build + ~25 detik deploy |
+| Token Vercel | Tidak perlu | Perlu |
+| Kapan dipakai | Deploy rutin | Deploy cepat / darurat |
+
 ---
 
 ## Environment Variables di Vercel
@@ -100,7 +165,7 @@ Set melalui Vercel dashboard atau CLI. Semua wajib untuk environment Production:
 | `NEXT_PUBLIC_BRAND_NAME` | `Waroeng SS Archery` |
 | `NODE_ENV` | `production` |
 
-> **Penting:** Jika password database mengandung `@`, encode menjadi `%40` di URL. Contoh: `pass@word` → `pass%40word`. Tanpa encoding ini Prisma tidak bisa terkoneksi.
+> **Penting:** Jika password database mengandung `@`, encode menjadi `%40` di URL. Tanpa ini Prisma tidak bisa terkoneksi.
 
 ### Update env var via CLI
 
@@ -134,7 +199,7 @@ Prisma Client was generated for "darwin", but deployment required "rhel-openssl-
 
 ## Dependencies — Catatan Penting
 
-Package-package berikut harus ada di `dependencies` (bukan `devDependencies`) agar tersedia saat `vercel build`:
+Package-package berikut harus ada di `dependencies` (bukan `devDependencies`) agar tersedia saat Vercel build:
 
 ```json
 {
@@ -143,9 +208,6 @@ Package-package berikut harus ada di `dependencies` (bukan `devDependencies`) ag
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/node": "^20.17.6",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/js-cookie": "^3.0.6",
-    "@types/qrcode": "^1.5.5",
     "typescript": "^5.6.3",
     "tailwindcss": "^3.4.15",
     "postcss": "^8.4.49",
@@ -158,19 +220,17 @@ Package-package berikut harus ada di `dependencies` (bukan `devDependencies`) ag
 
 ## Proteksi Akses (SSO)
 
-Vercel team bisa mengaktifkan SSO protection yang membuat deployment URL hanya bisa diakses oleh anggota tim. Jika situs tidak bisa dibuka oleh publik:
+Vercel team bisa mengaktifkan SSO protection — hanya member tim yang bisa akses URL. Jika situs tidak bisa dibuka publik:
 
-1. Buka Vercel → Project → **Settings → Security**
-2. Cari **Vercel Authentication**
-3. Disable
+1. Vercel → Project → **Settings → Security**
+2. Cari **Vercel Authentication** → Disable
 
 ---
 
 ## Post-Deploy Checklist
 
 ```
-[ ] Build selesai tanpa error
-[ ] vercel deploy --prebuilt berhasil (✓ Ready)
+[ ] Build selesai tanpa error (auto atau manual)
 [ ] https://waroengss-archery.vercel.app terbuka (HTTP 200)
 [ ] Homepage menampilkan daftar event
 [ ] Halaman event (/e/[slug]) terbuka tanpa error 500
@@ -188,16 +248,18 @@ Vercel team bisa mengaktifkan SSO protection yang membuat deployment URL hanya b
 
 - Free tier Supabase akan **pause** setelah 1 minggu tidak aktif → aktifkan kembali dari dashboard
 - Gunakan port **6543** (pooler) untuk `DATABASE_URL` dan port **5432** untuk `DIRECT_URL`
-- Izinkan koneksi dari luar (`Settings → Database → Network → Allow all` atau IP Vercel)
+- Izinkan koneksi dari luar: `Settings → Database → Network → Allow all`
 
 ---
 
-## Custom Domain (Opsional)
+## Custom Domain
 
 Di Vercel → Project → **Settings → Domains**:
 
 ```
-gallery.waroengss.com  →  CNAME  →  cname.vercel-dns.com
+archery.waroengss.com  →  CNAME  →  cname.vercel-dns.com
 ```
 
-Setelah domain aktif, update env var `NEXT_PUBLIC_APP_URL` dan redeploy.
+Setelah domain aktif:
+1. Update env var `NEXT_PUBLIC_APP_URL` ke `https://archery.waroengss.com`
+2. Redeploy (auto atau manual)

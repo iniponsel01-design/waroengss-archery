@@ -8,7 +8,7 @@ import { BannerSlider } from "@/components/shared/BannerSlider";
 import { AdBlock } from "@/components/shared/AdBlock";
 import { getBranding } from "@/lib/utils/branding";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const [{ data: events }, bannersTop, bannersBottom, adSlots, branding] = await Promise.all([

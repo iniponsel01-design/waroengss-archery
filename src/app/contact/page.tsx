@@ -4,6 +4,8 @@ import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
 import { getBranding } from "@/lib/utils/branding";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Kontak",
   description: "Hubungi tim Waroeng SS Archery Gallery untuk pertanyaan, saran, atau kerja sama.",

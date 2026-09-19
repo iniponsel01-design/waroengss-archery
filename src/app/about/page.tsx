@@ -4,6 +4,8 @@ import { Camera, FolderOpen, Download, QrCode, Shield } from "lucide-react";
 import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Tentang Kami",
   description: "Waroeng SS Archery Gallery — platform dokumentasi foto event panahan yang dikembangkan oleh Nusantara Android Studio.",

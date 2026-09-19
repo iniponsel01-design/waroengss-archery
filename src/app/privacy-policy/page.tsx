@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "Kebijakan privasi Waroeng SS Archery Gallery — cara kami mengumpulkan, menggunakan, dan melindungi data Anda.",

@@ -4,6 +4,8 @@ import { eventRepository } from "@/repositories/event.repository";
 import { searchSchema } from "@/lib/validation/schemas";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 function serializeSafe(data: unknown): string {
   return JSON.stringify(data, (_key, value) =>
     typeof value === "bigint" ? Number(value) : value

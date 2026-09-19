@@ -5,7 +5,13 @@ import { z } from "zod";
 
 const adSlotSchema = z.object({
   name: z.string().min(1).max(100),
-  position: z.enum(["HOME_BOTTOM", "GALLERY_BOTTOM", "PHOTO_SIDEBAR"]),
+  position: z.enum([
+    "HOME_BOTTOM",
+    "EVENT_BOTTOM",
+    "DAY_BOTTOM",
+    "GALLERY_BOTTOM",
+    "PHOTO_SIDEBAR",
+  ]),
   adClient: z.string().min(1),
   adSlot: z.string().min(1),
   adFormat: z.string().default("auto"),

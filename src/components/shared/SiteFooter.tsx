@@ -18,6 +18,12 @@ export async function SiteFooter({ dark = false }: SiteFooterProps) {
     { href: branding.brandWebsite,    icon: Globe,     label: "Website" },
   ].filter((s) => !!s.href);
 
+  const legalLinks = [
+    { href: "/about",          label: "Tentang" },
+    { href: "/contact",        label: "Kontak" },
+    { href: "/privacy-policy", label: "Privacy Policy" },
+  ];
+
   return (
     <footer
       className={cn(
@@ -51,10 +57,26 @@ export async function SiteFooter({ dark = false }: SiteFooterProps) {
           </div>
         )}
 
-        {/* Footer text */}
+        {/* Footer text + legal links */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
           <p>{branding.footerText}</p>
           <p className="text-xs opacity-50">Powered by Nusantara Event Gallery</p>
+        </div>
+
+        {/* Legal links */}
+        <div className="flex items-center justify-center gap-4 text-xs">
+          {legalLinks.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "transition-colors hover:underline",
+                dark ? "text-gray-600 hover:text-gray-400" : "text-gray-400 hover:text-gray-600"
+              )}
+            >
+              {label}
+            </Link>
+          ))}
         </div>
       </div>
     </footer>

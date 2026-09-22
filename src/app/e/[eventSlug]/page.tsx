@@ -11,7 +11,7 @@ import { EventStats } from "@/components/gallery/EventStats";
 import { formatDateRange } from "@/lib/utils/date";
 import { PageBannersTop, PageBannersBottom } from "@/components/shared/PageBanners";
 
-export const revalidate = 300;
+export const revalidate = 30;
 
 interface Props {
   params: Promise<{ eventSlug: string }>;

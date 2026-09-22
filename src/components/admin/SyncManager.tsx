@@ -89,10 +89,35 @@ export function SyncManager({
   const totalAlbumPages = Math.ceil(totalAlbums / albumsPerPage);
   const totalJobPages = Math.ceil(totalJobs / jobsPerPage);
 
-  // Sync single album
+  // ── Poll single job until terminal status ─────────────────
+  const pollJob = (jobId: string): Promise<{ addedFiles: number; updatedFiles: number; deletedFiles: number; status: string }> => {
+    return new Promise((resolve) => {
+      const INTERVAL = 3000;
+      const MAX = 60; // 3 menit max
+      let attempts = 0;
+      const check = async () => {
+        attempts++;
+        try {
+          const res = await fetch(`/api/admin/drive/sync?jobId=${jobId}`);
+          const json = await res.json();
+          const job = json.data;
+          if (!job) { resolve({ addedFiles: 0, updatedFiles: 0, deletedFiles: 0, status: "FAILED" }); return; }
+          if (["COMPLETED", "PARTIAL", "FAILED"].includes(job.status)) {
+            resolve(job);
+            return;
+          }
+        } catch { /* silent */ }
+        if (attempts < MAX) setTimeout(check, INTERVAL);
+        else resolve({ addedFiles: 0, updatedFiles: 0, deletedFiles: 0, status: "TIMEOUT" });
+      };
+      setTimeout(check, INTERVAL);
+    });
+  };
+
+  // ── Sync single album ──────────────────────────────────────
   const handleSync = async (albumId: string) => {
     setSyncing(albumId);
-    setSyncResults((r) => ({ ...r, [albumId]: "" }));
+    setSyncResults((r) => ({ ...r, [albumId]: "⏳ Memulai sync..." }));
     try {
       const res = await fetch("/api/admin/drive/sync", {
         method: "POST",
@@ -100,15 +125,26 @@ export function SyncManager({
         body: JSON.stringify({ albumId }),
       });
       const json = await res.json();
-      if (json.success) {
-        const j = json.data;
+      if (!json.success) {
+        setSyncResults((r) => ({ ...r, [albumId]: `✗ ${json.error || "Sync gagal"}` }));
+        return;
+      }
+      // API sekarang selalu 202 + jobId
+      const jobId = json.data?.jobId;
+      if (!jobId) {
+        setSyncResults((r) => ({ ...r, [albumId]: "✗ Tidak ada jobId dari server" }));
+        return;
+      }
+      setSyncResults((r) => ({ ...r, [albumId]: `⏳ Sync berjalan... (${jobId.slice(-6)})` }));
+      const job = await pollJob(jobId);
+      if (job.status === "COMPLETED" || job.status === "PARTIAL") {
         setSyncResults((r) => ({
           ...r,
-          [albumId]: `✓ +${j.addedFiles} baru · ${j.updatedFiles} diperbarui · ${j.deletedFiles} dihapus`,
+          [albumId]: `✓ +${job.addedFiles} baru · ${job.updatedFiles} diperbarui · ${job.deletedFiles} dihapus`,
         }));
         router.refresh();
       } else {
-        setSyncResults((r) => ({ ...r, [albumId]: `✗ ${json.error || "Sync gagal"}` }));
+        setSyncResults((r) => ({ ...r, [albumId]: `✗ Sync ${job.status.toLowerCase()}` }));
       }
     } catch {
       setSyncResults((r) => ({ ...r, [albumId]: "✗ Kesalahan jaringan" }));
@@ -117,7 +153,7 @@ export function SyncManager({
     }
   };
 
-  // Sync ALL albums sequentially
+  // ── Sync ALL albums sequentially (tunggu tiap job selesai) ─
   const handleSyncAll = async () => {
     if (!confirm(`Sync semua ${allAlbumsForSyncAll.length} album sekaligus?\n\nProses ini mungkin memakan waktu beberapa menit.`)) return;
 
@@ -136,8 +172,14 @@ export function SyncManager({
           body: JSON.stringify({ albumId: album.id }),
         });
         const json = await res.json();
-        if (json.success) {
-          totalAdded += json.data.addedFiles ?? 0;
+        if (json.success && json.data?.jobId) {
+          // Tunggu job selesai sebelum lanjut ke album berikutnya
+          const job = await pollJob(json.data.jobId);
+          if (job.status === "COMPLETED" || job.status === "PARTIAL") {
+            totalAdded += job.addedFiles ?? 0;
+          } else {
+            totalFailed++;
+          }
         } else {
           totalFailed++;
         }
@@ -150,7 +192,10 @@ export function SyncManager({
 
     setSyncingAll(false);
     router.refresh();
-    alert(`Sync selesai!\n✓ ${totalAdded} foto baru\n${totalFailed > 0 ? `✗ ${totalFailed} album gagal` : "Semua album berhasil"}`);
+    alert(
+      `Sync selesai!\n✓ ${totalAdded} foto baru` +
+      (totalFailed > 0 ? `\n✗ ${totalFailed} album gagal` : "\nSemua album berhasil")
+    );
   };
 
   const buildUrl = (params: Record<string, string | undefined>) => {
@@ -257,7 +302,9 @@ export function SyncManager({
                     {syncResults[album.id] && (
                       <p className={cn(
                         "text-xs mt-0.5 font-medium",
-                        syncResults[album.id].startsWith("✓") ? "text-green-600" : "text-red-600"
+                        syncResults[album.id].startsWith("✓") ? "text-green-600"
+                        : syncResults[album.id].startsWith("✗") ? "text-red-600"
+                        : "text-blue-500"
                       )}>
                         {syncResults[album.id]}
                       </p>

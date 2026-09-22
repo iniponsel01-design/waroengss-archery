@@ -10,7 +10,7 @@ import { AlbumCard } from "@/components/gallery/AlbumCard";
 import { mediaRepository } from "@/repositories/media.repository";
 import { PageBannersTop, PageBannersBottom } from "@/components/shared/PageBanners";
 
-export const revalidate = 300;
+export const revalidate = 30;
 
 interface Props {
   params: Promise<{ eventSlug: string; dayNumber: string }>;

@@ -72,10 +72,11 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
     const dayNumber  = albumMeta?.eventDay.dayNumber    ?? 1;
     const albumSlug  = albumMeta?.slug                  ?? "album";
 
-    // 2. Get existing media files for this album from DB
+    // 2. Get ALL existing media files for this album from DB (termasuk DELETED)
+    // — include DELETED agar upsert tidak conflict jika file yang sama pernah di-delete
     const existingMedia = await prisma.mediaFile.findMany({
-      where: { albumId, status: { not: "DELETED" } },
-      select: { id: true, driveFileId: true, driveModifiedAt: true, displayName: true },
+      where: { albumId },
+      select: { id: true, driveFileId: true, driveModifiedAt: true, displayName: true, status: true },
     });
 
     const existingByDriveId = new Map(
@@ -101,9 +102,11 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
         const displayName = generateDisplayName({ eventSlug, dayNumber, albumSlug, position });
 
         if (!existing) {
-          // NEW file — INSERT
-          await prisma.mediaFile.create({
-            data: {
+          // NEW file — upsert by driveFileId untuk hindari race condition
+          // (jika job lain sudah INSERT duluan, update saja)
+          await prisma.mediaFile.upsert({
+            where: { driveFileId: file.id },
+            create: {
               eventId,
               eventDayId,
               albumId,
@@ -119,10 +122,40 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
               driveModifiedAt,
               status: "ACTIVE",
             },
+            update: {
+              filename: file.name,
+              displayName,
+              mimeType: file.mimeType,
+              fileSize: file.size ? BigInt(file.size) : null,
+              width: file.imageMediaMetadata?.width ?? null,
+              height: file.imageMediaMetadata?.height ?? null,
+              thumbnailUrl,
+              previewUrl,
+              driveModifiedAt,
+              status: "ACTIVE",   // reaktivasi jika sebelumnya DELETED
+            },
+          });
+          result.addedFiles++;
+        } else if (existing.status === "DELETED") {
+          // File pernah dihapus dari Drive lalu muncul lagi — reaktivasi
+          await prisma.mediaFile.update({
+            where: { id: existing.id },
+            data: {
+              filename: file.name,
+              displayName: existing.displayName ?? displayName,
+              mimeType: file.mimeType,
+              fileSize: file.size ? BigInt(file.size) : null,
+              width: file.imageMediaMetadata?.width ?? null,
+              height: file.imageMediaMetadata?.height ?? null,
+              thumbnailUrl,
+              previewUrl,
+              driveModifiedAt,
+              status: "ACTIVE",
+            },
           });
           result.addedFiles++;
         } else {
-          // EXISTING — check if modified
+          // EXISTING ACTIVE/HIDDEN — check if modified
           const existingModified = existing.driveModifiedAt;
           const wasModified =
             driveModifiedAt &&
@@ -134,7 +167,6 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
               where: { id: existing.id },
               data: {
                 filename: file.name,
-                // displayName di-update hanya jika belum ada (preserve existing alias)
                 ...(existing.displayName ? {} : { displayName }),
                 mimeType: file.mimeType,
                 fileSize: file.size ? BigInt(file.size) : null,
@@ -148,7 +180,6 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
             });
             result.updatedFiles++;
           } else {
-            // Foto tidak berubah — tapi isi displayName jika masih kosong
             if (!existing.displayName) {
               await prisma.mediaFile.update({
                 where: { id: existing.id },

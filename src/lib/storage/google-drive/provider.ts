@@ -140,10 +140,11 @@ export class GoogleDriveProvider implements StorageProviderInterface {
 
   /**
    * Thumbnail URL — used for gallery grid
-   * Size: 400px (adjustable via sz param)
+   * sz=800: sweet spot — tajam di retina/2x DPR, file ~2-3x lebih kecil dari sz=2400.
+   * Sebelumnya sz=400 menyebabkan blur di layar retina dan grid lebar.
    */
   getThumbnailUrl(fileId: string): string {
-    return `${GOOGLE_DRIVE_THUMBNAIL_BASE}${fileId}&sz=400`;
+    return `${GOOGLE_DRIVE_THUMBNAIL_BASE}${fileId}&sz=800`;
   }
 
   /**

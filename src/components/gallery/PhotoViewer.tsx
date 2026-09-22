@@ -17,6 +17,7 @@ interface Photo {
   id: string;
   driveFileId: string;
   filename: string;
+  displayName: string | null;
   width: number | null;
   height: number | null;
   thumbnailUrl: string | null;
@@ -74,7 +75,17 @@ export function PhotoViewer({
     setFavorite(favs.includes(photo.id));
   }, [photo]);
 
-  // Keyboard navigation
+  // Deklarasikan navigasi SEBELUM keyboard effect agar tidak stale closure
+  const goPrev = useCallback(() => {
+    if (currentIndex > 0) onIndexChange(currentIndex - 1);
+  }, [currentIndex, onIndexChange]);
+
+  const goNext = useCallback(() => {
+    if (currentIndex < total - 1) onIndexChange(currentIndex + 1);
+  }, [currentIndex, total, onIndexChange]);
+
+  // Keyboard navigation — hanya viewer yang handle key saat aktif.
+  // PhotoGallery menonaktifkan handler-nya saat viewer terbuka (mencegah double-fire).
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") goNext();
@@ -83,15 +94,7 @@ export function PhotoViewer({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [currentIndex, total]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const goPrev = useCallback(() => {
-    if (currentIndex > 0) onIndexChange(currentIndex - 1);
-  }, [currentIndex, onIndexChange]);
-
-  const goNext = useCallback(() => {
-    if (currentIndex < total - 1) onIndexChange(currentIndex + 1);
-  }, [currentIndex, total, onIndexChange]);
+  }, [goPrev, goNext, onClose]);
 
   // Touch swipe — supports both horizontal swipe nav and vertical scroll
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -313,8 +316,8 @@ export function PhotoViewer({
 
       {/* ── Bottom bar — Download + filename ────────────── */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-4 pt-8 pb-4 flex items-end justify-between">
-        <p className="text-white/40 text-xs truncate max-w-[50%]" title={photo.filename}>
-          {photo.filename}
+        <p className="text-white/40 text-xs truncate max-w-[50%]" title={photo.displayName ?? photo.filename}>
+          {photo.displayName ?? photo.filename}
         </p>
 
         <button

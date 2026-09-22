@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db/client";
 import { googleDriveProvider } from "@/lib/storage/google-drive/provider";
 import type { DriveFile, SyncResult } from "@/types";
 import type { Album, SyncJob } from "@prisma/client";
+import { generateDisplayName } from "@/lib/utils/display-name";
 
 const IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
@@ -54,10 +55,27 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
     const imageFiles = driveFiles.filter((f) => IMAGE_MIME_TYPES.has(f.mimeType));
     result.totalFiles = imageFiles.length;
 
+    // Load album + event metadata untuk display name generation
+    const albumMeta = await prisma.album.findUnique({
+      where: { id: albumId },
+      select: {
+        slug: true,
+        eventDay: {
+          select: {
+            dayNumber: true,
+            event: { select: { slug: true } },
+          },
+        },
+      },
+    });
+    const eventSlug  = albumMeta?.eventDay.event.slug  ?? "event";
+    const dayNumber  = albumMeta?.eventDay.dayNumber    ?? 1;
+    const albumSlug  = albumMeta?.slug                  ?? "album";
+
     // 2. Get existing media files for this album from DB
     const existingMedia = await prisma.mediaFile.findMany({
       where: { albumId, status: { not: "DELETED" } },
-      select: { id: true, driveFileId: true, driveModifiedAt: true },
+      select: { id: true, driveFileId: true, driveModifiedAt: true, displayName: true },
     });
 
     const existingByDriveId = new Map(
@@ -78,6 +96,10 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
         const thumbnailUrl = googleDriveProvider.getThumbnailUrl(file.id);
         const previewUrl = googleDriveProvider.getPreviewUrl(file.id);
 
+        // Position 1-based — pakai index di imageFiles (sudah diurutkan by name dari Drive)
+        const position = imageFiles.indexOf(file) + 1;
+        const displayName = generateDisplayName({ eventSlug, dayNumber, albumSlug, position });
+
         if (!existing) {
           // NEW file — INSERT
           await prisma.mediaFile.create({
@@ -87,6 +109,7 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
               albumId,
               driveFileId: file.id,
               filename: file.name,
+              displayName,
               mimeType: file.mimeType,
               fileSize: file.size ? BigInt(file.size) : null,
               width: file.imageMediaMetadata?.width ?? null,
@@ -111,6 +134,8 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
               where: { id: existing.id },
               data: {
                 filename: file.name,
+                // displayName di-update hanya jika belum ada (preserve existing alias)
+                ...(existing.displayName ? {} : { displayName }),
                 mimeType: file.mimeType,
                 fileSize: file.size ? BigInt(file.size) : null,
                 width: file.imageMediaMetadata?.width ?? null,
@@ -123,6 +148,13 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
             });
             result.updatedFiles++;
           } else {
+            // Foto tidak berubah — tapi isi displayName jika masih kosong
+            if (!existing.displayName) {
+              await prisma.mediaFile.update({
+                where: { id: existing.id },
+                data: { displayName },
+              });
+            }
             result.skippedFiles++;
           }
         }
@@ -185,14 +217,18 @@ export async function syncAlbumFromDrive(options: SyncAlbumOptions): Promise<Syn
 }
 
 /**
- * Create a sync job and start syncing an album
+ * @deprecated Gunakan pola di sync/route.ts:
+ *   1. Buat SyncJob (status QUEUED)
+ *   2. void syncAlbumFromDrive(...)   ← fire-and-forget
+ *   3. Return 202 langsung ke client
+ *
+ * Fungsi ini masih blocking dan hanya cocok untuk script CLI/seeder.
  */
 export async function startAlbumSync(album: Album & { eventDayId: string }): Promise<SyncJob> {
   if (!album.driveFolderId) {
     throw new Error("Album has no Google Drive folder linked");
   }
 
-  // Get event day to find event ID
   const eventDay = await prisma.eventDay.findUnique({
     where: { id: album.eventDayId },
     select: { eventId: true },
@@ -202,7 +238,6 @@ export async function startAlbumSync(album: Album & { eventDayId: string }): Pro
     throw new Error("Event day not found");
   }
 
-  // Create sync job
   const job = await prisma.syncJob.create({
     data: {
       eventId: eventDay.eventId,
@@ -212,7 +247,7 @@ export async function startAlbumSync(album: Album & { eventDayId: string }): Pro
     },
   });
 
-  // Run sync (in production this would be a background job)
+  // Blocking — jangan panggil dari HTTP request handler
   await syncAlbumFromDrive({
     eventId: eventDay.eventId,
     eventDayId: album.eventDayId,
@@ -221,6 +256,5 @@ export async function startAlbumSync(album: Album & { eventDayId: string }): Pro
     jobId: job.id,
   });
 
-  // Return updated job
   return prisma.syncJob.findUnique({ where: { id: job.id } }) as Promise<SyncJob>;
 }

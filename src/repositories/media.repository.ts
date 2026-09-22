@@ -22,6 +22,7 @@ export const mediaRepository = {
         id: true,
         driveFileId: true,
         filename: true,
+        displayName: true,
         mimeType: true,
         fileSize: true,
         width: true,
@@ -32,7 +33,8 @@ export const mediaRepository = {
         eventDayId: true,
         eventId: true,
         sortOrder: true,
-      },      orderBy: [{ sortOrder: "asc" }, { filename: "asc" }],
+      },
+      orderBy: [{ sortOrder: "asc" }, { filename: "asc" }],
       take: pageSize + 1,
       cursor: options.cursor ? { id: options.cursor } : undefined,
       skip: options.cursor ? 1 : 0,
@@ -56,8 +58,22 @@ export const mediaRepository = {
     const where = {
       eventId: params.eventId,
       status: "ACTIVE" as const,
+      // Filter per hari
+      ...(params.dayNumber
+        ? { eventDay: { dayNumber: params.dayNumber } }
+        : {}),
+      // Filter per album (via slug)
+      ...(params.albumSlug
+        ? { album: { slug: params.albumSlug } }
+        : {}),
+      // Full-text: cocokkan filename ATAU displayName
       ...(params.q
-        ? { filename: { contains: params.q, mode: "insensitive" as const } }
+        ? {
+            OR: [
+              { filename:    { contains: params.q, mode: "insensitive" as const } },
+              { displayName: { contains: params.q, mode: "insensitive" as const } },
+            ],
+          }
         : {}),
     };
 
@@ -68,6 +84,7 @@ export const mediaRepository = {
           id: true,
           driveFileId: true,
           filename: true,
+          displayName: true,
           mimeType: true,
           fileSize: true,
           width: true,
@@ -106,6 +123,7 @@ export const mediaRepository = {
         id: true,
         driveFileId: true,
         filename: true,
+        displayName: true,
         mimeType: true,
         fileSize: true,
         width: true,

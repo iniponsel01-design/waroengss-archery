@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Loader2, Images } from "lucide-react";
+import { Loader2, Images, ArrowUp } from "lucide-react";
 import { PhotoViewer } from "./PhotoViewer";
 import { cn } from "@/lib/utils/cn";
 
@@ -9,6 +9,7 @@ interface Photo {
   id: string;
   driveFileId: string;
   filename: string;
+  displayName: string | null;
   mimeType: string;
   width: number | null;
   height: number | null;
@@ -39,6 +40,7 @@ export function PhotoGallery({ albumId, eventSlug, initialCursor }: PhotoGallery
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const fetchingRef = useRef(false);
 
@@ -87,9 +89,10 @@ export function PhotoGallery({ albumId, eventSlug, initialCursor }: PhotoGallery
     return () => observer.disconnect();
   }, [hasMore, loading, cursor, initialLoaded, fetchPhotos]);
 
-  // Keyboard navigation
+  // Keyboard navigation — hanya aktif saat viewer TIDAK terbuka.
+  // Saat viewer terbuka, PhotoViewer menangani semua key event sendiri.
   useEffect(() => {
-    if (!viewerOpen) return;
+    if (viewerOpen) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") setViewerIndex((i) => Math.min(i + 1, photos.length - 1));
       else if (e.key === "ArrowLeft") setViewerIndex((i) => Math.max(i - 1, 0));
@@ -98,6 +101,17 @@ export function PhotoGallery({ albumId, eventSlug, initialCursor }: PhotoGallery
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [viewerOpen, photos.length]);
+
+  // Back to Top — tampil setelah scroll 400px
+  useEffect(() => {
+    const handleScroll = () => setShowBackToTop(window.scrollY > 400);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  const handleCloseViewer = useCallback(() => setViewerOpen(false), []);
 
   // Empty state
   if (initialLoaded && photos.length === 0) {
@@ -164,10 +178,24 @@ export function PhotoGallery({ albumId, eventSlug, initialCursor }: PhotoGallery
           initialIndex={viewerIndex}
           currentIndex={viewerIndex}
           onIndexChange={setViewerIndex}
-          onClose={() => setViewerOpen(false)}
+          onClose={handleCloseViewer}
           eventSlug={eventSlug}
         />
       )}
+
+      {/* Back to Top */}
+      <button
+        onClick={scrollToTop}
+        aria-label="Kembali ke atas"
+        className={cn(
+          "fixed bottom-6 right-6 z-40 w-11 h-11 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-lg flex items-center justify-center transition-all duration-300",
+          showBackToTop && !viewerOpen
+            ? "opacity-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 translate-y-4 pointer-events-none"
+        )}
+      >
+        <ArrowUp size={18} />
+      </button>
     </>
   );
 }
@@ -191,7 +219,7 @@ function PhotoItem({
       onClick={onClick}
       className="break-inside-avoid mb-1.5 block w-full relative overflow-hidden rounded bg-gray-800 group focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-950"
       style={{ paddingBottom: `${aspectRatio * 100}%` }}
-      aria-label={`Buka foto: ${photo.filename}`}
+      aria-label={`Buka foto: ${photo.displayName ?? photo.filename}`}
     >
       {/* Placeholder saat loading */}
       {!loaded && !error && (

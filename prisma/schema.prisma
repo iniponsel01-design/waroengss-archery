@@ -151,6 +151,11 @@ model MediaFile {
   width        Int?
   height       Int?
 
+  // Human-readable alias — auto-generated saat sync, tidak mengubah nama asli di Drive.
+  // Format: <eventSlug>-day<N>-<albumSlug>-<NNNN>
+  // Contoh: wss-archery-day1-sesi-pagi-0042
+  displayName  String?     @map("display_name")
+
   // URL fields (constructed from Drive file ID)
   thumbnailUrl  String?    @map("thumbnail_url")
   previewUrl    String?    @map("preview_url")
@@ -174,6 +179,7 @@ model MediaFile {
   @@index([driveFileId])
   @@index([status])
   @@index([driveModifiedAt])
+  @@index([displayName])
   @@map("media_files")
 }
 

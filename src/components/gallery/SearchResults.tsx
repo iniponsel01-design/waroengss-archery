@@ -78,9 +78,10 @@ export function SearchResults({
     setLoading(true);
     try {
       const params = new URLSearchParams({ eventSlug });
-      if (query) params.set("q", query);
-      if (dayFilter) params.set("dayNumber", dayFilter);
-      params.set("page", String(page));
+      if (query)      params.set("q",          query);
+      if (dayFilter)  params.set("dayNumber",   dayFilter);
+      if (albumFilter) params.set("albumSlug",  albumFilter);   // FIX: sebelumnya tidak dikirim
+      params.set("page",     String(page));
       params.set("pageSize", "48");
 
       const res = await fetch(`/api/search?${params}`);
@@ -98,9 +99,9 @@ export function SearchResults({
 
   const applyFilters = () => {
     const params = new URLSearchParams();
-    if (q.trim()) params.set("q", q.trim());
-    if (activeDay) params.set("day", activeDay);
-    if (activeAlbum) params.set("album", activeAlbum);
+    if (q.trim())     params.set("q",      q.trim());
+    if (activeDay)    params.set("day",    activeDay);
+    if (activeAlbum)  params.set("album",  activeAlbum);  // key "album" sesuai searchParams di page.tsx
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -180,6 +181,40 @@ export function SearchResults({
               </button>
             ))}
           </div>
+
+          {/* Album filter — tampil hanya jika ada albums */}
+          {albums.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-gray-500 flex items-center gap-1">
+                <Filter size={12} /> Album:
+              </span>
+              <button
+                onClick={() => setActiveAlbum("")}
+                className={cn(
+                  "text-xs px-3 py-1 rounded-full transition-colors",
+                  !activeAlbum
+                    ? "bg-brand-600 text-white"
+                    : "bg-gray-800 text-gray-400 hover:text-white"
+                )}
+              >
+                Semua
+              </button>
+              {albums.map((album) => (
+                <button
+                  key={album.id}
+                  onClick={() => setActiveAlbum(album.slug)}
+                  className={cn(
+                    "text-xs px-3 py-1 rounded-full transition-colors",
+                    activeAlbum === album.slug
+                      ? "bg-brand-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:text-white"
+                  )}
+                >
+                  {album.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

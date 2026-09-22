@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { config } from "@/config";
+import { getBranding } from "@/lib/utils/branding";
+import { buildBrandCssVars } from "@/lib/utils/color-scale";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -92,14 +94,20 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Load primary_color dari DB → generate CSS variable scale
+  const branding = await getBranding();
+  const brandCss = buildBrandCssVars(branding.primaryColor);
+
   return (
     <html lang="id" suppressHydrationWarning className={inter.variable}>
       <head>
+        {/* Brand color override — dihasilkan dari primary_color di DB */}
+        <style dangerouslySetInnerHTML={{ __html: brandCss }} />
         {/* Extra meta untuk PWA */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="application-name" content="WSS Archery" />
@@ -112,4 +120,3 @@ export default function RootLayout({
     </html>
   );
 }
-// build trigger 1789669297

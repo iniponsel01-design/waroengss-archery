@@ -4,8 +4,24 @@
 
 @layer base {
   :root {
-    --brand-primary: #ec4899;
-    --brand-primary-dark: #be185d;
+    /* Brand color scale — default: pink (#ec4899).
+       Di-override runtime oleh layout.tsx berdasarkan primary_color dari DB.
+       Semua kelas brand-* di Tailwind mereferensi var() ini. */
+    --brand-50:  #fdf2f8;
+    --brand-100: #fce7f3;
+    --brand-200: #fbcfe8;
+    --brand-300: #f9a8d4;
+    --brand-400: #f472b6;
+    --brand-500: #ec4899;
+    --brand-600: #db2777;
+    --brand-700: #be185d;
+    --brand-800: #9d174d;
+    --brand-900: #831843;
+    --brand-950: #500724;
+
+    /* Legacy vars (untuk kompatibilitas kode lama) */
+    --brand-primary:      var(--brand-600);
+    --brand-primary-dark: var(--brand-700);
     --font-inter: 'Inter', system-ui, sans-serif;
   }
 

@@ -14,6 +14,10 @@ import {
   Trash2,
   X,
   Save,
+  ArrowUp,
+  ArrowDown,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 import { generateSlug } from "@/lib/utils/slug";
 import { formatNumber } from "@/lib/utils/date";
@@ -24,6 +28,8 @@ interface Album {
   name: string;
   slug: string;
   driveFolderId: string | null;
+  sortOrder: number;
+  status: "ACTIVE" | "HIDDEN";
   _count: { mediaFiles: number };
 }
 
@@ -90,6 +96,8 @@ export function DayManager({ event, days }: DayManagerProps) {
   // Loading states
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // ── Add Day ────────────────────────────────────────────────
   const handleAddDay = async (e: React.FormEvent) => {
@@ -271,6 +279,63 @@ export function DayManager({ event, days }: DayManagerProps) {
     }
   };
 
+  // ── Reorder Album (move up / down) ────────────────────────
+  const handleMoveAlbum = async (dayId: string, albumId: string, direction: "up" | "down") => {
+    const day = days.find((d) => d.id === dayId);
+    if (!day) return;
+
+    const sorted = [...day.albums].sort((a, b) => a.sortOrder - b.sortOrder);
+    const idx = sorted.findIndex((a) => a.id === albumId);
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= sorted.length) return;
+
+    const albumA = sorted[idx];
+    const albumB = sorted[swapIdx];
+    const newOrderA = albumB.sortOrder;
+    const newOrderB = albumA.sortOrder;
+
+    setReorderingId(albumId);
+    try {
+      await Promise.all([
+        fetch(`/api/admin/albums/${albumA.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sortOrder: newOrderA }),
+        }),
+        fetch(`/api/admin/albums/${albumB.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sortOrder: newOrderB }),
+        }),
+      ]);
+      router.refresh();
+    } catch {
+      alert("Gagal mengubah urutan album.");
+    } finally {
+      setReorderingId(null);
+    }
+  };
+
+  // ── Toggle Album Visibility ────────────────────────────────
+  const handleToggleAlbum = async (albumId: string, currentStatus: "ACTIVE" | "HIDDEN") => {
+    const newStatus = currentStatus === "ACTIVE" ? "HIDDEN" : "ACTIVE";
+    setTogglingId(albumId);
+    try {
+      const res = await fetch(`/api/admin/albums/${albumId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) alert(json.error || "Gagal mengubah status.");
+      else router.refresh();
+    } catch {
+      alert("Terjadi kesalahan jaringan.");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   // ── Sync ───────────────────────────────────────────────────
   const handleSync = async (albumId: string) => {
     setSyncingAlbum(albumId);
@@ -283,12 +348,22 @@ export function DayManager({ event, days }: DayManagerProps) {
       });
       const json = await res.json();
       if (json.success) {
-        const j = json.data;
-        setSyncResult((r) => ({
-          ...r,
-          [albumId]: `✓ +${j.addedFiles} baru · ${j.updatedFiles} diperbarui`,
-        }));
-        router.refresh();
+        if (res.status === 202) {
+          // Async job — poll status
+          const jobId = json.data?.jobId;
+          setSyncResult((r) => ({
+            ...r,
+            [albumId]: `⏳ Sync dimulai... (Job: ${jobId?.slice(-6) ?? "?"})`,
+          }));
+          if (jobId) pollSyncJob(albumId, jobId);
+        } else {
+          const j = json.data;
+          setSyncResult((r) => ({
+            ...r,
+            [albumId]: `✓ +${j.addedFiles} baru · ${j.updatedFiles} diperbarui`,
+          }));
+          router.refresh();
+        }
       } else {
         setSyncResult((r) => ({ ...r, [albumId]: `✗ ${json.error || "Sync gagal"}` }));
       }
@@ -297,6 +372,49 @@ export function DayManager({ event, days }: DayManagerProps) {
     } finally {
       setSyncingAlbum(null);
     }
+  };
+
+  const pollSyncJob = (albumId: string, jobId: string) => {
+    const INTERVAL = 3000;
+    const MAX = 40;
+    let attempts = 0;
+    const check = async () => {
+      attempts++;
+      try {
+        const res = await fetch(`/api/admin/drive/sync?jobId=${jobId}`);
+        const json = await res.json();
+        const job = json.data;
+        if (!job) return;
+        if (job.status === "COMPLETED" || job.status === "PARTIAL") {
+          setSyncResult((r) => ({
+            ...r,
+            [albumId]: `✓ +${job.addedFiles} baru · ${job.updatedFiles} diperbarui · ${job.skippedFiles} skip`,
+          }));
+          router.refresh();
+          return;
+        }
+        if (job.status === "FAILED") {
+          setSyncResult((r) => ({
+            ...r,
+            [albumId]: `✗ Gagal: ${job.errorMessage ?? "Unknown"}`,
+          }));
+          return;
+        }
+        if (attempts < MAX) {
+          setSyncResult((r) => ({
+            ...r,
+            [albumId]: `⏳ ${job.status}... (+${job.addedFiles ?? 0} sejauh ini)`,
+          }));
+          setTimeout(check, INTERVAL);
+        } else {
+          setSyncResult((r) => ({
+            ...r,
+            [albumId]: `⏳ Masih berjalan. Refresh halaman untuk melihat hasilnya.`,
+          }));
+        }
+      } catch { /* silent */ }
+    };
+    setTimeout(check, INTERVAL);
   };
 
   return (
@@ -377,7 +495,7 @@ export function DayManager({ event, days }: DayManagerProps) {
           {/* Albums */}
           {expandedDay === day.id && (
             <div className="p-4 space-y-2 bg-white">
-              {day.albums.map((album) => (
+              {[...day.albums].sort((a, b) => a.sortOrder - b.sortOrder).map((album, albumIdx, sortedAlbums) => (
                 <div key={album.id}>
                   {editingAlbumId === album.id ? (
                     /* Edit Album inline */
@@ -432,9 +550,26 @@ export function DayManager({ event, days }: DayManagerProps) {
                     </div>
                   ) : (
                     /* Album row */
-                    <div className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2.5 hover:bg-gray-50">
+                    <div className={cn(
+                      "flex items-center justify-between border rounded-lg px-3 py-2.5 hover:bg-gray-50",
+                      album.status === "HIDDEN"
+                        ? "border-gray-200 bg-gray-50/50 opacity-60"
+                        : "border-gray-100"
+                    )}>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-800">{album.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className={cn(
+                            "text-sm font-medium",
+                            album.status === "HIDDEN" ? "text-gray-400 line-through" : "text-gray-800"
+                          )}>
+                            {album.name}
+                          </p>
+                          {album.status === "HIDDEN" && (
+                            <span className="text-[10px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">
+                              Hidden
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs mt-0.5">
                           {album.driveFolderId
                             ? <span className="text-green-600">✓ Drive terhubung</span>
@@ -444,12 +579,53 @@ export function DayManager({ event, days }: DayManagerProps) {
                           <span className="text-gray-400">{formatNumber(album._count.mediaFiles)} foto</span>
                         </p>
                         {syncResult[album.id] && (
-                          <p className={cn("text-xs mt-0.5 font-medium", syncResult[album.id].startsWith("✓") ? "text-green-600" : "text-red-500")}>
+                          <p className={cn("text-xs mt-0.5 font-medium",
+                            syncResult[album.id].startsWith("✓") ? "text-green-600"
+                            : syncResult[album.id].startsWith("✗") ? "text-red-500"
+                            : "text-blue-500"
+                          )}>
                             {syncResult[album.id]}
                           </p>
                         )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0 ml-2">
+                        {/* Move Up */}
+                        <button
+                          onClick={() => handleMoveAlbum(day.id, album.id, "up")}
+                          disabled={!!reorderingId || albumIdx === 0}
+                          className="p-1.5 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Naikan urutan"
+                        >
+                          {reorderingId === album.id ? <Loader2 size={12} className="animate-spin" /> : <ArrowUp size={12} />}
+                        </button>
+                        {/* Move Down */}
+                        <button
+                          onClick={() => handleMoveAlbum(day.id, album.id, "down")}
+                          disabled={!!reorderingId || albumIdx === sortedAlbums.length - 1}
+                          className="p-1.5 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Turunkan urutan"
+                        >
+                          <ArrowDown size={12} />
+                        </button>
+                        {/* Toggle Hide/Show */}
+                        <button
+                          onClick={() => handleToggleAlbum(album.id, album.status)}
+                          disabled={togglingId === album.id}
+                          className={cn(
+                            "p-1.5 rounded-lg transition-colors",
+                            album.status === "HIDDEN"
+                              ? "text-gray-400 hover:text-green-600 hover:bg-green-50"
+                              : "text-gray-400 hover:text-orange-500 hover:bg-orange-50"
+                          )}
+                          title={album.status === "HIDDEN" ? "Tampilkan album" : "Sembunyikan album"}
+                        >
+                          {togglingId === album.id
+                            ? <Loader2 size={13} className="animate-spin" />
+                            : album.status === "HIDDEN"
+                              ? <Eye size={13} />
+                              : <EyeOff size={13} />
+                          }
+                        </button>
                         {/* Sync */}
                         {album.driveFolderId && (
                           <button

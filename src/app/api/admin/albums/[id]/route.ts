@@ -8,7 +8,7 @@ const updateAlbumSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
   description: z.string().max(1000).optional().nullable(),
   driveFolderId: z.string().optional().nullable(),
-  sortOrder: z.number().int().optional(),
+  sortOrder: z.number().int().min(0).optional(),
   status: z.enum(["ACTIVE", "HIDDEN"]).optional(),
 });
 

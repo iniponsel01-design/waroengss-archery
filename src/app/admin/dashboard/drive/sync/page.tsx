@@ -18,6 +18,7 @@ export default async function SyncPage({ searchParams }: Props) {
   // Albums with Drive folder — paginated
   const albumWhere = {
     driveFolderId: { not: null as string | null },
+    status: "ACTIVE" as const,                           // exclude HIDDEN
     ...(eventFilter ? { eventDay: { event: { id: eventFilter } } } : {}),
   };
 
@@ -56,9 +57,13 @@ export default async function SyncPage({ searchParams }: Props) {
     prisma.syncJob.count({ where: jobWhere }),
   ]);
 
-  // All albums with drive folder (for Sync All — no pagination)
+  // All albums with drive folder (for Sync All — ikuti filter event yang aktif)
   const allAlbumsForSyncAll = await prisma.album.findMany({
-    where: { driveFolderId: { not: null } },
+    where: {
+      driveFolderId: { not: null },
+      status: "ACTIVE",                                  // exclude HIDDEN
+      ...(eventFilter ? { eventDay: { event: { id: eventFilter } } } : {}),
+    },
     select: { id: true, name: true, driveFolderId: true },
   });
 

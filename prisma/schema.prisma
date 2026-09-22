@@ -257,6 +257,8 @@ model SyncJob {
   storageConnection StorageConnection? @relation(fields: [storageConnectionId], references: [id])
 
   @@index([eventId])
+  @@index([albumId])
+  @@index([albumId, status])
   @@index([status])
   @@map("sync_jobs")
 }

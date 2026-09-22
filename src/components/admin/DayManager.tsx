@@ -353,30 +353,36 @@ export function DayManager({ event, days }: DayManagerProps) {
           const jobId = json.data?.jobId;
           setSyncResult((r) => ({
             ...r,
-            [albumId]: `⏳ Sync dimulai... (Job: ${jobId?.slice(-6) ?? "?"})`,
+            [albumId]: `⏳ Sync berjalan... (Job: ${jobId?.slice(-6) ?? "?"})`,
           }));
-          if (jobId) pollSyncJob(albumId, jobId);
+          if (jobId) {
+            pollSyncJob(albumId, jobId);
+            // setSyncingAlbum(null) dipanggil oleh pollSyncJob setelah selesai
+          } else {
+            // jobId tidak ada — selesaikan state sekarang
+            setSyncResult((r) => ({ ...r, [albumId]: "✗ Tidak ada jobId dari server" }));
+            setSyncingAlbum(null);
+          }
         } else {
-          const j = json.data;
-          setSyncResult((r) => ({
-            ...r,
-            [albumId]: `✓ +${j.addedFiles} baru · ${j.updatedFiles} diperbarui`,
-          }));
-          router.refresh();
+          // Fallback (tidak seharusnya terjadi — API selalu 202)
+          setSyncResult((r) => ({ ...r, [albumId]: "✗ Respons tidak terduga dari server" }));
+          setSyncingAlbum(null);
         }
       } else {
         setSyncResult((r) => ({ ...r, [albumId]: `✗ ${json.error || "Sync gagal"}` }));
+        setSyncingAlbum(null);
       }
     } catch {
       setSyncResult((r) => ({ ...r, [albumId]: "✗ Kesalahan jaringan" }));
-    } finally {
       setSyncingAlbum(null);
     }
+    // ← tidak ada finally setSyncingAlbum(null) di sini —
+    //   state diselesaikan di masing-masing branch atau di pollSyncJob
   };
 
   const pollSyncJob = (albumId: string, jobId: string) => {
     const INTERVAL = 3000;
-    const MAX = 40;
+    const MAX = 60; // konsisten dengan SyncManager (3 menit)
     let attempts = 0;
     const check = async () => {
       attempts++;
@@ -384,12 +390,16 @@ export function DayManager({ event, days }: DayManagerProps) {
         const res = await fetch(`/api/admin/drive/sync?jobId=${jobId}`);
         const json = await res.json();
         const job = json.data;
-        if (!job) return;
+        if (!job) {
+          setSyncingAlbum(null);
+          return;
+        }
         if (job.status === "COMPLETED" || job.status === "PARTIAL") {
           setSyncResult((r) => ({
             ...r,
             [albumId]: `✓ +${job.addedFiles} baru · ${job.updatedFiles} diperbarui · ${job.skippedFiles} skip`,
           }));
+          setSyncingAlbum(null);  // ← tombol Sync aktif kembali setelah benar-benar selesai
           router.refresh();
           return;
         }
@@ -398,8 +408,10 @@ export function DayManager({ event, days }: DayManagerProps) {
             ...r,
             [albumId]: `✗ Gagal: ${job.errorMessage ?? "Unknown"}`,
           }));
+          setSyncingAlbum(null);  // ← aktif kembali agar bisa retry
           return;
         }
+        // QUEUED / RUNNING — lanjut poll
         if (attempts < MAX) {
           setSyncResult((r) => ({
             ...r,
@@ -407,12 +419,17 @@ export function DayManager({ event, days }: DayManagerProps) {
           }));
           setTimeout(check, INTERVAL);
         } else {
+          // Timeout polling — biarkan user refresh manual
           setSyncResult((r) => ({
             ...r,
-            [albumId]: `⏳ Masih berjalan. Refresh halaman untuk melihat hasilnya.`,
+            [albumId]: `⏳ Masih berjalan di background. Refresh halaman untuk melihat hasilnya.`,
           }));
+          setSyncingAlbum(null);  // ← aktif kembali agar tidak stuck selamanya
         }
-      } catch { /* silent */ }
+      } catch {
+        // Polling error — jangan stuck, aktifkan tombol kembali
+        setSyncingAlbum(null);
+      }
     };
     setTimeout(check, INTERVAL);
   };

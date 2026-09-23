@@ -274,11 +274,14 @@ model SyncJob {
   completedAt       DateTime?  @map("completed_at")
 
   totalFiles        Int        @default(0) @map("total_files")
+  processedFiles    Int        @default(0) @map("processed_files")
   addedFiles        Int        @default(0) @map("added_files")
   updatedFiles      Int        @default(0) @map("updated_files")
   deletedFiles      Int        @default(0) @map("deleted_files")
   failedFiles       Int        @default(0) @map("failed_files")
   skippedFiles      Int        @default(0) @map("skipped_files")
+
+  currentFile       String?    @map("current_file")   // nama file yang sedang diproses
 
   errorMessage      String?    @map("error_message")
   logData           Json?      @map("log_data")

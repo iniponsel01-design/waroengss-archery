@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   RefreshCw, Loader2, CheckCircle, XCircle, Clock,
   Play, ChevronLeft, ChevronRight, Filter, AlertTriangle,
+  FileImage,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils/date";
 import Link from "next/link";
@@ -86,14 +87,30 @@ export function SyncManager({
   const [syncResults, setSyncResults] = useState<Record<string, string>>({});
   const [syncAllProgress, setSyncAllProgress] = useState({ done: 0, total: 0 });
 
+  // Progress detail per album: { total, processed, currentFile }
+  const [syncProgress, setSyncProgress] = useState<Record<string, {
+    total: number;
+    processed: number;
+    currentFile: string | null;
+  }>>({});
+
+  // Progress Sync All global
+  const [syncAllCurrentAlbum, setSyncAllCurrentAlbum] = useState<string | null>(null);
+  const [syncAllFileProgress, setSyncAllFileProgress] = useState<{
+    total: number; processed: number; currentFile: string | null;
+  } | null>(null);
+
   const totalAlbumPages = Math.ceil(totalAlbums / albumsPerPage);
   const totalJobPages = Math.ceil(totalJobs / jobsPerPage);
 
-  // ── Poll single job until terminal status ─────────────────
-  const pollJob = (jobId: string): Promise<{ addedFiles: number; updatedFiles: number; deletedFiles: number; status: string }> => {
+  // ── Poll single job — return job data + update progress state ─
+  const pollJob = (
+    jobId: string,
+    albumId?: string
+  ): Promise<{ addedFiles: number; updatedFiles: number; deletedFiles: number; status: string }> => {
     return new Promise((resolve) => {
-      const INTERVAL = 3000;
-      const MAX = 60; // 3 menit max
+      const INTERVAL = 2000;   // lebih cepat: 2 detik
+      const MAX = 90;          // 3 menit max
       let attempts = 0;
       const check = async () => {
         attempts++;
@@ -102,7 +119,28 @@ export function SyncManager({
           const json = await res.json();
           const job = json.data;
           if (!job) { resolve({ addedFiles: 0, updatedFiles: 0, deletedFiles: 0, status: "FAILED" }); return; }
+
+          // Update progress state jika ada albumId
+          if (albumId && job.totalFiles > 0) {
+            setSyncProgress((prev) => ({
+              ...prev,
+              [albumId]: {
+                total:       job.totalFiles,
+                processed:   job.processedFiles ?? 0,
+                currentFile: job.currentFile ?? null,
+              },
+            }));
+          }
+
           if (["COMPLETED", "PARTIAL", "FAILED"].includes(job.status)) {
+            // Bersihkan progress
+            if (albumId) {
+              setSyncProgress((prev) => {
+                const next = { ...prev };
+                delete next[albumId];
+                return next;
+              });
+            }
             resolve(job);
             return;
           }
@@ -118,6 +156,7 @@ export function SyncManager({
   const handleSync = async (albumId: string) => {
     setSyncing(albumId);
     setSyncResults((r) => ({ ...r, [albumId]: "⏳ Memulai sync..." }));
+    setSyncProgress((p) => ({ ...p, [albumId]: { total: 0, processed: 0, currentFile: null } }));
     try {
       const res = await fetch("/api/admin/drive/sync", {
         method: "POST",
@@ -127,16 +166,17 @@ export function SyncManager({
       const json = await res.json();
       if (!json.success) {
         setSyncResults((r) => ({ ...r, [albumId]: `✗ ${json.error || "Sync gagal"}` }));
+        setSyncProgress((p) => { const n = { ...p }; delete n[albumId]; return n; });
         return;
       }
-      // API sekarang selalu 202 + jobId
       const jobId = json.data?.jobId;
       if (!jobId) {
         setSyncResults((r) => ({ ...r, [albumId]: "✗ Tidak ada jobId dari server" }));
+        setSyncProgress((p) => { const n = { ...p }; delete n[albumId]; return n; });
         return;
       }
-      setSyncResults((r) => ({ ...r, [albumId]: `⏳ Sync berjalan... (${jobId.slice(-6)})` }));
-      const job = await pollJob(jobId);
+      setSyncResults((r) => ({ ...r, [albumId]: `⏳ Sync berjalan...` }));
+      const job = await pollJob(jobId, albumId);
       if (job.status === "COMPLETED" || job.status === "PARTIAL") {
         setSyncResults((r) => ({
           ...r,
@@ -148,23 +188,29 @@ export function SyncManager({
       }
     } catch {
       setSyncResults((r) => ({ ...r, [albumId]: "✗ Kesalahan jaringan" }));
+      setSyncProgress((p) => { const n = { ...p }; delete n[albumId]; return n; });
     } finally {
       setSyncing(null);
     }
   };
 
-  // ── Sync ALL albums sequentially (tunggu tiap job selesai) ─
+  // ── Sync ALL albums sequentially ──────────────────────────
   const handleSyncAll = async () => {
     if (!confirm(`Sync semua ${allAlbumsForSyncAll.length} album sekaligus?\n\nProses ini mungkin memakan waktu beberapa menit.`)) return;
 
     setSyncingAll(true);
     setSyncAllProgress({ done: 0, total: allAlbumsForSyncAll.length });
+    setSyncAllCurrentAlbum(null);
+    setSyncAllFileProgress(null);
 
     let done = 0;
     let totalAdded = 0;
     let totalFailed = 0;
 
     for (const album of allAlbumsForSyncAll) {
+      setSyncAllCurrentAlbum(album.name);
+      setSyncAllFileProgress({ total: 0, processed: 0, currentFile: null });
+
       try {
         const res = await fetch("/api/admin/drive/sync", {
           method: "POST",
@@ -173,8 +219,38 @@ export function SyncManager({
         });
         const json = await res.json();
         if (json.success && json.data?.jobId) {
-          // Tunggu job selesai sebelum lanjut ke album berikutnya
-          const job = await pollJob(json.data.jobId);
+          const jobId = json.data.jobId;
+
+          // Poll dengan update progress Sync All
+          const job = await new Promise<{ addedFiles: number; status: string }>((resolve) => {
+            const INTERVAL = 2000;
+            const MAX = 90;
+            let attempts = 0;
+            const check = async () => {
+              attempts++;
+              try {
+                const r = await fetch(`/api/admin/drive/sync?jobId=${jobId}`);
+                const j = await r.json();
+                const jobData = j.data;
+                if (!jobData) { resolve({ addedFiles: 0, status: "FAILED" }); return; }
+
+                setSyncAllFileProgress({
+                  total:       jobData.totalFiles ?? 0,
+                  processed:   jobData.processedFiles ?? 0,
+                  currentFile: jobData.currentFile ?? null,
+                });
+
+                if (["COMPLETED", "PARTIAL", "FAILED"].includes(jobData.status)) {
+                  resolve(jobData);
+                  return;
+                }
+              } catch { /* silent */ }
+              if (attempts < MAX) setTimeout(check, INTERVAL);
+              else resolve({ addedFiles: 0, status: "TIMEOUT" });
+            };
+            setTimeout(check, INTERVAL);
+          });
+
           if (job.status === "COMPLETED" || job.status === "PARTIAL") {
             totalAdded += job.addedFiles ?? 0;
           } else {
@@ -186,11 +262,14 @@ export function SyncManager({
       } catch {
         totalFailed++;
       }
+
       done++;
       setSyncAllProgress({ done, total: allAlbumsForSyncAll.length });
     }
 
     setSyncingAll(false);
+    setSyncAllCurrentAlbum(null);
+    setSyncAllFileProgress(null);
     router.refresh();
     alert(
       `Sync selesai!\n✓ ${totalAdded} foto baru` +
@@ -252,17 +331,50 @@ export function SyncManager({
 
         {/* Progress bar untuk Sync All */}
         {syncingAll && (
-          <div className="mt-4">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Menyinkronkan...</span>
-              <span>{syncAllProgress.done} / {syncAllProgress.total}</span>
+          <div className="mt-4 space-y-2">
+            {/* Album progress */}
+            <div className="flex justify-between text-xs text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <Loader2 size={11} className="animate-spin text-green-500" />
+                {syncAllCurrentAlbum
+                  ? <span>Sync: <strong className="text-gray-700">{syncAllCurrentAlbum}</strong></span>
+                  : <span>Menyinkronkan...</span>
+                }
+              </span>
+              <span className="tabular-nums">{syncAllProgress.done} / {syncAllProgress.total} album</span>
             </div>
+            {/* Album-level progress bar */}
             <div className="w-full bg-gray-100 rounded-full h-2">
               <div
                 className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(syncAllProgress.done / syncAllProgress.total) * 100}%` }}
+                style={{ width: syncAllProgress.total > 0 ? `${(syncAllProgress.done / syncAllProgress.total) * 100}%` : "0%" }}
               />
             </div>
+            {/* File-level progress dalam album aktif */}
+            {syncAllFileProgress && syncAllFileProgress.total > 0 && (
+              <>
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span className="flex items-center gap-1">
+                    <FileImage size={10} />
+                    {syncAllFileProgress.currentFile
+                      ? <span className="truncate max-w-[240px]" title={syncAllFileProgress.currentFile}>
+                          {syncAllFileProgress.currentFile}
+                        </span>
+                      : <span>Memproses file...</span>
+                    }
+                  </span>
+                  <span className="tabular-nums shrink-0 ml-2">
+                    {syncAllFileProgress.processed}/{syncAllFileProgress.total} file
+                  </span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div
+                    className="bg-blue-400 h-1.5 rounded-full transition-all duration-200"
+                    style={{ width: `${(syncAllFileProgress.processed / syncAllFileProgress.total) * 100}%` }}
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -299,6 +411,7 @@ export function SyncManager({
                     <p className="text-sm text-gray-500">
                       {album.name} · {formatNumber(album._count.mediaFiles)} foto
                     </p>
+                    {/* Hasil sync */}
                     {syncResults[album.id] && (
                       <p className={cn(
                         "text-xs mt-0.5 font-medium",
@@ -308,6 +421,33 @@ export function SyncManager({
                       )}>
                         {syncResults[album.id]}
                       </p>
+                    )}
+                    {/* Progress bar per-album saat sync */}
+                    {syncProgress[album.id] && syncProgress[album.id].total > 0 && (
+                      <div className="mt-1.5 space-y-1">
+                        <div className="flex justify-between text-[11px] text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <FileImage size={10} />
+                            {syncProgress[album.id].currentFile
+                              ? <span className="truncate max-w-[180px]" title={syncProgress[album.id].currentFile ?? undefined}>
+                                  {syncProgress[album.id].currentFile}
+                                </span>
+                              : <span>Memproses...</span>
+                            }
+                          </span>
+                          <span className="tabular-nums shrink-0 ml-1">
+                            {syncProgress[album.id].processed}/{syncProgress[album.id].total}
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5">
+                          <div
+                            className="bg-brand-500 h-1.5 rounded-full transition-all duration-200"
+                            style={{
+                              width: `${Math.min(100, (syncProgress[album.id].processed / syncProgress[album.id].total) * 100)}%`
+                            }}
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
                   <button

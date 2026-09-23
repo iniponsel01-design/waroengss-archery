@@ -47,18 +47,35 @@ export const updateEventDaySchema = createEventDaySchema
   .omit({ eventId: true, dayNumber: true })
   .partial();
 
+// ─── Album Group ──────────────────────────────────────────────
+export const createAlbumGroupSchema = z.object({
+  eventDayId:  z.string().cuid(),
+  name:        z.string().min(1).max(200),
+  slug:        z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, "Slug harus lowercase, angka, dan tanda hubung"),
+  description: z.string().max(1000).optional(),
+  sortOrder:   z.number().int().min(0).default(0),
+});
+
+export const updateAlbumGroupSchema = createAlbumGroupSchema
+  .omit({ eventDayId: true })
+  .partial()
+  .extend({
+    status: z.enum(["ACTIVE", "HIDDEN"]).optional(),
+  });
+
 // ─── Album ────────────────────────────────────────────────────
 export const createAlbumSchema = z.object({
-  eventDayId: z.string().cuid(),
-  name: z.string().min(1).max(200),
-  slug: z
+  eventDayId:    z.string().cuid(),
+  albumGroupId:  z.string().cuid().optional().nullable(),   // assign ke grup (opsional)
+  name:          z.string().min(1).max(200),
+  slug:          z
     .string()
     .min(1)
     .max(100)
     .regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters, numbers, and hyphens"),
-  description: z.string().max(1000).optional(),
+  description:   z.string().max(1000).optional(),
   driveFolderId: z.string().optional().nullable(),
-  sortOrder: z.number().int().default(0),
+  sortOrder:     z.number().int().default(0),
 });
 
 export const updateAlbumSchema = createAlbumSchema
@@ -96,6 +113,8 @@ export type CreateEventInput = z.infer<typeof createEventSchema>;
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;
 export type CreateEventDayInput = z.infer<typeof createEventDaySchema>;
 export type UpdateEventDayInput = z.infer<typeof updateEventDaySchema>;
+export type CreateAlbumGroupInput = z.infer<typeof createAlbumGroupSchema>;
+export type UpdateAlbumGroupInput = z.infer<typeof updateAlbumGroupSchema>;
 export type CreateAlbumInput = z.infer<typeof createAlbumSchema>;
 export type UpdateAlbumInput = z.infer<typeof updateAlbumSchema>;
 export type SearchInput = z.infer<typeof searchSchema>;

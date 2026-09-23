@@ -12,12 +12,13 @@ export async function POST(request: NextRequest) {
 
       const album = await prisma.album.create({
         data: {
-          eventDayId: data.eventDayId,
-          name: data.name,
-          slug: data.slug,
-          description: data.description,
+          eventDayId:   data.eventDayId,
+          albumGroupId: data.albumGroupId ?? null,
+          name:         data.name,
+          slug:         data.slug,
+          description:  data.description,
           driveFolderId: data.driveFolderId,
-          sortOrder: data.sortOrder,
+          sortOrder:    data.sortOrder,
         },
       });
 

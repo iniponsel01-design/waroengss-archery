@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Search } from "lucide-react";
@@ -52,6 +53,7 @@ export default async function AlbumPage({ params, searchParams }: Props) {
     },
     include: {
       eventDay: true,
+      albumGroup: { select: { id: true, name: true, slug: true } },
       _count: { select: { mediaFiles: { where: { status: "ACTIVE" } } } },
     },
   });
@@ -77,6 +79,18 @@ export default async function AlbumPage({ params, searchParams }: Props) {
               >
                 {album.eventDay.title}
               </Link>
+              {/* Grup (opsional) */}
+              {album.albumGroup && (
+                <>
+                  <span>/</span>
+                  <Link
+                    href={`/e/${eventSlug}/day/${album.eventDay.dayNumber}/group/${album.albumGroup.slug}`}
+                    className="hover:text-white transition-colors"
+                  >
+                    {album.albumGroup.name}
+                  </Link>
+                </>
+              )}
               <span>/</span>
               <span className="text-gray-300">{album.name}</span>
             </nav>

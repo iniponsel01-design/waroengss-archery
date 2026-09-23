@@ -28,6 +28,17 @@ export default async function EditEventPage({ params }: Props) {
       eventDays: {
         orderBy: { sortOrder: "asc" },
         include: {
+          albumGroups: {
+            orderBy: { sortOrder: "asc" },
+            include: {
+              albums: {
+                orderBy: { sortOrder: "asc" },
+                include: {
+                  _count: { select: { mediaFiles: { where: { status: "ACTIVE" } } } },
+                },
+              },
+            },
+          },
           albums: {
             orderBy: { sortOrder: "asc" },
             include: {

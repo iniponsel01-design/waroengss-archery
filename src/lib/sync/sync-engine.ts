@@ -2,6 +2,13 @@
  * Sync Engine
  * Incremental sync from Google Drive to PostgreSQL
  * Flow: Drive → Discover → Compare DB → INSERT/UPDATE/SKIP/MARK_DELETED
+ *
+ * Dua mode sync:
+ * 1. syncAlbumFromDrive()       — sync foto dalam SATU album (folder Drive → Album di DB)
+ * 2. syncDayFoldersFromDrive()  — scan sub-folder di Day folder Drive:
+ *      - sub-folder level 1 → AlbumGroup (contoh: "Sesi 1")
+ *      - sub-folder level 2 → Album (contoh: "Matches")
+ *      - jika tidak ada sub-folder → langsung jadi Album (backward compatible)
  */
 
 import { prisma } from "@/lib/db/client";
@@ -9,6 +16,7 @@ import { googleDriveProvider } from "@/lib/storage/google-drive/provider";
 import type { DriveFile, SyncResult } from "@/types";
 import type { Album, SyncJob } from "@prisma/client";
 import { generateDisplayName } from "@/lib/utils/display-name";
+import { generateSlug } from "@/lib/utils/slug";
 
 const IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
@@ -288,4 +296,238 @@ export async function startAlbumSync(album: Album & { eventDayId: string }): Pro
   });
 
   return prisma.syncJob.findUnique({ where: { id: job.id } }) as Promise<SyncJob>;
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUB-FOLDER SYNC
+// ─────────────────────────────────────────────────────────────
+
+export interface SyncDayFoldersOptions {
+  eventId: string;
+  eventDayId: string;
+  /** Drive folder ID milik Day (berisi sub-folder grup/album) */
+  dayFolderId: string;
+}
+
+export interface SyncDayFoldersResult {
+  groupsCreated: number;
+  groupsUpdated: number;
+  albumsCreated: number;
+  albumsUpdated: number;
+  /** Tiap entry = hasil syncAlbumFromDrive untuk album yang di-sync */
+  albumSyncResults: Array<{ albumId: string; albumName: string; result: SyncResult }>;
+  errors: string[];
+}
+
+/**
+ * syncDayFoldersFromDrive
+ *
+ * Scan sub-folder di dayFolderId (Drive folder milik EventDay):
+ *
+ * Mode A — sub-folder memiliki sub-folder lagi (2 level):
+ *   dayFolder/
+ *     Sesi 1/            → AlbumGroup "Sesi 1"
+ *       Matches/         → Album "Matches" (isi foto)
+ *       UPP/             → Album "UPP" (isi foto)
+ *     Sesi 2/            → AlbumGroup "Sesi 2"
+ *       Matches/         → Album "Matches"
+ *
+ * Mode B — sub-folder langsung berisi foto (1 level, backward compatible):
+ *   dayFolder/
+ *     Matches/           → Album "Matches" (langsung, tanpa grup)
+ *     UPP/               → Album "UPP"
+ *
+ * Mode deteksi: cek apakah sub-folder level 1 punya sub-sub-folder.
+ * Jika ya → Mode A. Jika tidak → Mode B.
+ * Mixed (sebagian punya sub-folder) → yang punya sub-folder jadi grup, yang tidak jadi album langsung.
+ */
+export async function syncDayFoldersFromDrive(
+  options: SyncDayFoldersOptions
+): Promise<SyncDayFoldersResult> {
+  const { eventId, eventDayId, dayFolderId } = options;
+
+  const result: SyncDayFoldersResult = {
+    groupsCreated: 0,
+    groupsUpdated: 0,
+    albumsCreated: 0,
+    albumsUpdated: 0,
+    albumSyncResults: [],
+    errors: [],
+  };
+
+  // 1. List semua sub-folder langsung di dayFolder
+  const level1Folders = await googleDriveProvider.listFolders(dayFolderId);
+
+  for (const l1 of level1Folders) {
+    try {
+      // 2. Cek apakah level-1 folder punya sub-folder (Mode A) atau tidak (Mode B)
+      const level2Folders = await googleDriveProvider.listFolders(l1.id);
+
+      if (level2Folders.length > 0) {
+        // ── Mode A: l1 = AlbumGroup, l2 = Album ──────────────
+        const groupSlug = generateSlug(l1.name);
+
+        // Upsert AlbumGroup
+        const existingGroup = await prisma.albumGroup.findFirst({
+          where: { eventDayId, slug: groupSlug },
+        });
+
+        let group;
+        if (existingGroup) {
+          group = await prisma.albumGroup.update({
+            where: { id: existingGroup.id },
+            data: { name: l1.name, status: "ACTIVE" },
+          });
+          result.groupsUpdated++;
+        } else {
+          // Hitung sortOrder dari jumlah grup yang sudah ada
+          const groupCount = await prisma.albumGroup.count({ where: { eventDayId } });
+          group = await prisma.albumGroup.create({
+            data: {
+              eventDayId,
+              name:      l1.name,
+              slug:      groupSlug,
+              sortOrder: groupCount,
+              status:    "ACTIVE",
+            },
+          });
+          result.groupsCreated++;
+        }
+
+        // Upsert Album untuk tiap sub-folder level-2
+        for (const l2 of level2Folders) {
+          const albumResult = await upsertAlbumAndSync({
+            eventId,
+            eventDayId,
+            albumGroupId: group.id,
+            folderName:   l2.name,
+            driveFolderId: l2.id,
+            result,
+          });
+          if (albumResult) {
+            result.albumSyncResults.push({
+              albumId:   albumResult.albumId,
+              albumName: l2.name,
+              result:    albumResult.syncResult,
+            });
+          }
+        }
+      } else {
+        // ── Mode B: l1 langsung jadi Album (tanpa grup) ───────
+        const albumResult = await upsertAlbumAndSync({
+          eventId,
+          eventDayId,
+          albumGroupId: null,
+          folderName:   l1.name,
+          driveFolderId: l1.id,
+          result,
+        });
+        if (albumResult) {
+          result.albumSyncResults.push({
+            albumId:   albumResult.albumId,
+            albumName: l1.name,
+            result:    albumResult.syncResult,
+          });
+        }
+      }
+    } catch (err) {
+      result.errors.push(
+        `Error processing folder "${l1.name}": ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  return result;
+}
+
+/** Helper: upsert Album di DB lalu sync foto-fotonya */
+async function upsertAlbumAndSync(opts: {
+  eventId:      string;
+  eventDayId:   string;
+  albumGroupId: string | null;
+  folderName:   string;
+  driveFolderId: string;
+  result:       SyncDayFoldersResult;
+}): Promise<{ albumId: string; syncResult: SyncResult } | null> {
+  const { eventId, eventDayId, albumGroupId, folderName, driveFolderId, result } = opts;
+  const slug = generateSlug(folderName);
+
+  try {
+    // Cari album yang sudah ada berdasarkan driveFolderId (paling akurat) atau slug
+    let album = await prisma.album.findFirst({
+      where: { driveFolderId, eventDayId },
+    });
+
+    if (!album) {
+      // Coba match by slug (album mungkin ada tapi belum linked ke Drive)
+      album = await prisma.album.findFirst({
+        where: { eventDayId, slug },
+      });
+    }
+
+    if (album) {
+      // Update album yang sudah ada
+      album = await prisma.album.update({
+        where: { id: album.id },
+        data: {
+          name:          folderName,
+          driveFolderId: driveFolderId,
+          albumGroupId:  albumGroupId,
+          status:        "ACTIVE",
+        },
+      });
+      result.albumsUpdated++;
+    } else {
+      // Buat album baru
+      const albumCount = await prisma.album.count({
+        where: albumGroupId ? { albumGroupId } : { eventDayId, albumGroupId: null },
+      });
+      album = await prisma.album.create({
+        data: {
+          eventDayId,
+          albumGroupId,
+          name:          folderName,
+          slug,
+          driveFolderId: driveFolderId,
+          sortOrder:     albumCount,
+          status:        "ACTIVE",
+        },
+      });
+      result.albumsCreated++;
+    }
+
+    // Buat SyncJob dan sync foto (memakai guard duplikat yang sudah ada di route.ts)
+    const existingActiveJob = await prisma.syncJob.findFirst({
+      where: { albumId: album.id, status: { in: ["QUEUED", "RUNNING"] } },
+    });
+
+    if (existingActiveJob) {
+      // Skip — sudah ada job aktif
+      return null;
+    }
+
+    const job = await prisma.syncJob.create({
+      data: {
+        eventId,
+        albumId:  album.id,
+        provider: "GOOGLE_DRIVE",
+        status:   "QUEUED",
+      },
+    });
+
+    const syncResult = await syncAlbumFromDrive({
+      eventId,
+      eventDayId,
+      albumId:       album.id,
+      driveFolderId: driveFolderId,
+      jobId:         job.id,
+    });
+
+    return { albumId: album.id, syncResult };
+  } catch (err) {
+    result.errors.push(
+      `Error upserting/syncing album "${folderName}": ${err instanceof Error ? err.message : String(err)}`
+    );
+    return null;
+  }
 }

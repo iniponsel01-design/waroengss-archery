@@ -4,12 +4,13 @@ import { prisma } from "@/lib/db/client";
 import { z } from "zod";
 
 const updateAlbumSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
-  description: z.string().max(1000).optional().nullable(),
+  name:          z.string().min(1).max(200).optional(),
+  slug:          z.string().regex(/^[a-z0-9-]+$/).optional(),
+  description:   z.string().max(1000).optional().nullable(),
   driveFolderId: z.string().optional().nullable(),
-  sortOrder: z.number().int().min(0).optional(),
-  status: z.enum(["ACTIVE", "HIDDEN"]).optional(),
+  albumGroupId:  z.string().cuid().optional().nullable(),  // assign/pindah grup
+  sortOrder:     z.number().int().min(0).optional(),
+  status:        z.enum(["ACTIVE", "HIDDEN"]).optional(),
 });
 
 // PATCH /api/admin/albums/:id

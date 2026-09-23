@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Images, FolderOpen } from "lucide-react";
+import { Images, FolderOpen, Layers } from "lucide-react";
 import { eventRepository } from "@/repositories/event.repository";
 import { prisma } from "@/lib/db/client";
 import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
 import { AlbumCard } from "@/components/gallery/AlbumCard";
+import { GroupCard } from "@/components/gallery/GroupCard";
 import { mediaRepository } from "@/repositories/media.repository";
 import { PageBannersTop, PageBannersBottom } from "@/components/shared/PageBanners";
 
@@ -45,19 +46,61 @@ export default async function DayPage({ params }: Props) {
   });
   if (!day) notFound();
 
-  const albums = await prisma.album.findMany({
+  // ── Album Groups (dengan album di dalamnya) ──────────────────
+  const groups = await prisma.albumGroup.findMany({
     where: { eventDayId: day.id, status: "ACTIVE" },
     orderBy: { sortOrder: "asc" },
     include: {
       _count: {
-        select: { mediaFiles: { where: { status: "ACTIVE" } } },
+        select: { albums: { where: { status: "ACTIVE" } } },
       },
     },
   });
 
-  // Get cover photo for each album
-  const albumsWithCovers = await Promise.all(
-    albums.map(async (album) => {
+  // Hitung total foto per grup (sum dari album-album di dalamnya)
+  const groupsWithStats = await Promise.all(
+    groups.map(async (group) => {
+      const photoCount = await prisma.mediaFile.count({
+        where: {
+          album: { albumGroupId: group.id, status: "ACTIVE" },
+          status: "ACTIVE",
+        },
+      });
+
+      // Cover: ambil dari album pertama dalam grup
+      const firstAlbum = await prisma.album.findFirst({
+        where: { albumGroupId: group.id, status: "ACTIVE" },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, coverPhotoId: true },
+      });
+      let coverPhoto = null;
+      if (firstAlbum) {
+        if (firstAlbum.coverPhotoId) {
+          coverPhoto = await prisma.mediaFile.findFirst({
+            where: { id: firstAlbum.coverPhotoId, status: "ACTIVE" },
+            select: { id: true, thumbnailUrl: true },
+          });
+        }
+        if (!coverPhoto) {
+          coverPhoto = await mediaRepository.findFirstInAlbum(firstAlbum.id);
+        }
+      }
+
+      return { ...group, photoCount, coverPhoto };
+    })
+  );
+
+  // ── Album tanpa grup (langsung di bawah Day) ─────────────────
+  const flatAlbums = await prisma.album.findMany({
+    where: { eventDayId: day.id, albumGroupId: null, status: "ACTIVE" },
+    orderBy: { sortOrder: "asc" },
+    include: {
+      _count: { select: { mediaFiles: { where: { status: "ACTIVE" } } } },
+    },
+  });
+
+  const flatAlbumsWithCovers = await Promise.all(
+    flatAlbums.map(async (album) => {
       let coverPhoto = null;
       if (album.coverPhotoId) {
         coverPhoto = await prisma.mediaFile.findFirst({
@@ -65,14 +108,18 @@ export default async function DayPage({ params }: Props) {
           select: { id: true, thumbnailUrl: true, driveFileId: true },
         });
       }
-      if (!coverPhoto) {
-        coverPhoto = await mediaRepository.findFirstInAlbum(album.id);
-      }
+      if (!coverPhoto) coverPhoto = await mediaRepository.findFirstInAlbum(album.id);
       return { ...album, coverPhoto };
     })
   );
 
-  const totalPhotos = albums.reduce((sum, a) => sum + a._count.mediaFiles, 0);
+  // Total foto = semua album dalam grup + album flat
+  const totalPhotosInGroups = groupsWithStats.reduce((s, g) => s + g.photoCount, 0);
+  const totalPhotosFlat = flatAlbums.reduce((s, a) => s + a._count.mediaFiles, 0);
+  const totalPhotos = totalPhotosInGroups + totalPhotosFlat;
+  const totalAlbums = groups.reduce((s, g) => s + g._count.albums, 0) + flatAlbums.length;
+
+  const hasGroups = groupsWithStats.length > 0;
 
   return (
     <>
@@ -97,7 +144,8 @@ export default async function DayPage({ params }: Props) {
               <p className="text-gray-300 mt-2">{day.description}</p>
             )}
             <p className="text-sm text-gray-400 mt-3">
-              {albums.length} album · {totalPhotos.toLocaleString()} foto
+              {hasGroups && `${groupsWithStats.length} sesi · `}
+              {totalAlbums} album · {totalPhotos.toLocaleString()} foto
             </p>
           </div>
         </section>
@@ -105,14 +153,52 @@ export default async function DayPage({ params }: Props) {
         {/* Banner DAY TOP */}
         <PageBannersTop position="DAY_TOP" className="max-w-6xl mx-auto px-4 pt-6" />
 
-        {/* Albums Grid */}
-        <section className="max-w-6xl mx-auto px-4 py-10">
-          <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-            <FolderOpen size={18} className="text-brand-600" />
-            Albums
-          </h2>
+        <div className="max-w-6xl mx-auto px-4 py-10 space-y-12">
 
-          {albumsWithCovers.length === 0 ? (
+          {/* ── Album Groups ──────────────────────────────── */}
+          {hasGroups && (
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <Layers size={18} className="text-brand-600" />
+                Sesi
+              </h2>
+              {groupsWithStats.length === 0 ? null : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {groupsWithStats.map((group) => (
+                    <GroupCard
+                      key={group.id}
+                      group={group}
+                      eventSlug={eventSlug}
+                      dayNumber={dayNum}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ── Album flat (tanpa grup) ───────────────────── */}
+          {flatAlbumsWithCovers.length > 0 && (
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <FolderOpen size={18} className="text-brand-600" />
+                {hasGroups ? "Album Lainnya" : "Albums"}
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {flatAlbumsWithCovers.map((album) => (
+                  <AlbumCard
+                    key={album.id}
+                    album={album}
+                    eventSlug={eventSlug}
+                    dayNumber={dayNum}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Empty state */}
+          {!hasGroups && flatAlbumsWithCovers.length === 0 && (
             <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
               <Images size={48} className="mx-auto text-gray-300 mb-4" />
               <p className="text-gray-500 font-medium">Belum ada album tersedia</p>
@@ -120,19 +206,9 @@ export default async function DayPage({ params }: Props) {
                 Foto sedang diproses. Silakan cek kembali beberapa saat lagi.
               </p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {albumsWithCovers.map((album) => (
-                <AlbumCard
-                  key={album.id}
-                  album={album}
-                  eventSlug={eventSlug}
-                  dayNumber={dayNum}
-                />
-              ))}
-            </div>
           )}
-        </section>
+
+        </div>
 
         {/* Banner + Iklan DAY BOTTOM */}
         <PageBannersBottom

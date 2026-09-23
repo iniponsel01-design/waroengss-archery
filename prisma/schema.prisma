@@ -94,6 +94,7 @@ model EventDay {
 
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   albums      Album[]
+  albumGroups AlbumGroup[]
   mediaFiles  MediaFile[]
 
   @@unique([eventId, dayNumber])
@@ -107,10 +108,40 @@ enum DayStatus {
   HIDDEN
 }
 
+// ─── ALBUM GROUPS ─────────────────────────────────────────────
+// Layer opsional antara EventDay dan Album.
+// Contoh: Day 3 → Sesi 1 (AlbumGroup) → Matches, UPP (Album)
+// Album tanpa albumGroupId tetap tampil langsung di bawah Day.
+model AlbumGroup {
+  id           String          @id @default(cuid())
+  eventDayId   String          @map("event_day_id")
+  name         String
+  slug         String
+  description  String?
+  coverPhotoId String?         @map("cover_photo_id")
+  sortOrder    Int             @default(0) @map("sort_order")
+  status       AlbumGroupStatus @default(ACTIVE)
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  eventDay     EventDay        @relation(fields: [eventDayId], references: [id], onDelete: Cascade)
+  albums       Album[]
+
+  @@unique([eventDayId, slug])
+  @@index([eventDayId])
+  @@map("album_groups")
+}
+
+enum AlbumGroupStatus {
+  ACTIVE
+  HIDDEN
+}
+
 // ─── ALBUMS ──────────────────────────────────────────────────
 model Album {
   id            String    @id @default(cuid())
   eventDayId    String    @map("event_day_id")
+  albumGroupId  String?   @map("album_group_id")   // nullable — album tanpa grup tetap valid
   name          String
   slug          String
   description   String?
@@ -121,12 +152,14 @@ model Album {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  eventDay      EventDay  @relation(fields: [eventDayId], references: [id], onDelete: Cascade)
+  eventDay      EventDay   @relation(fields: [eventDayId], references: [id], onDelete: Cascade)
+  albumGroup    AlbumGroup? @relation(fields: [albumGroupId], references: [id], onDelete: SetNull)
   mediaFiles    MediaFile[]
   syncJobs      SyncJob[]
 
   @@unique([eventDayId, slug])
   @@index([eventDayId])
+  @@index([albumGroupId])
   @@index([driveFolderId])
   @@map("albums")
 }

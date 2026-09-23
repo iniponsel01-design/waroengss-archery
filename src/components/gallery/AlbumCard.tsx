@@ -17,9 +17,11 @@ interface AlbumCardProps {
   };
   eventSlug: string;
   dayNumber: number;
+  /** Jika album berada dalam grup, slug grup untuk breadcrumb di halaman album */
+  groupSlug?: string;
 }
 
-export function AlbumCard({ album, eventSlug, dayNumber }: AlbumCardProps) {
+export function AlbumCard({ album, eventSlug, dayNumber, groupSlug }: AlbumCardProps) {
   const href = `/e/${eventSlug}/album/${album.slug}`;
 
   return (

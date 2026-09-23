@@ -106,7 +106,7 @@ export function DayManager({ event, days }: DayManagerProps) {
   // ── POLL SYNC JOB ─────────────────────────────────────────
   const pollSyncJob = useCallback((albumId: string, jobId: string) => {
     const INTERVAL = 2000;
-    const MAX = 90;
+    const MAX = 180;  // 6 menit
     let attempts = 0;
     const check = async () => {
       attempts++;

@@ -109,8 +109,8 @@ export function SyncManager({
     albumId?: string
   ): Promise<{ addedFiles: number; updatedFiles: number; deletedFiles: number; status: string }> => {
     return new Promise((resolve) => {
-      const INTERVAL = 2000;   // lebih cepat: 2 detik
-      const MAX = 90;          // 3 menit max
+      const INTERVAL = 2000;
+      const MAX = 180;   // 6 menit — cukup untuk album 1000+ foto
       let attempts = 0;
       const check = async () => {
         attempts++;
@@ -146,7 +146,20 @@ export function SyncManager({
           }
         } catch { /* silent */ }
         if (attempts < MAX) setTimeout(check, INTERVAL);
-        else resolve({ addedFiles: 0, updatedFiles: 0, deletedFiles: 0, status: "TIMEOUT" });
+        else {
+          // Timeout — cek satu kali lagi dengan status terbaru, mungkin sudah selesai
+          try {
+            const res = await fetch(`/api/admin/drive/sync?jobId=${jobId}`);
+            const json = await res.json();
+            const job = json.data;
+            if (job && ["COMPLETED", "PARTIAL", "FAILED"].includes(job.status)) {
+              if (albumId) setSyncProgress((prev) => { const n = { ...prev }; delete n[albumId]; return n; });
+              resolve(job);
+              return;
+            }
+          } catch { /* silent */ }
+          resolve({ addedFiles: 0, updatedFiles: 0, deletedFiles: 0, status: "TIMEOUT" });
+        }
       };
       setTimeout(check, INTERVAL);
     });
@@ -182,6 +195,10 @@ export function SyncManager({
           ...r,
           [albumId]: `✓ +${job.addedFiles} baru · ${job.updatedFiles} diperbarui · ${job.deletedFiles} dihapus`,
         }));
+        router.refresh();
+      } else if (job.status === "TIMEOUT") {
+        // Sync masih berjalan di background — bukan error, refresh untuk lihat hasilnya
+        setSyncResults((r) => ({ ...r, [albumId]: `⏳ Sync berjalan di background. Klik Refresh atau tunggu sebentar.` }));
         router.refresh();
       } else {
         setSyncResults((r) => ({ ...r, [albumId]: `✗ Sync ${job.status.toLowerCase()}` }));

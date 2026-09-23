@@ -38,6 +38,20 @@ export async function POST(request: NextRequest) {
       }
 
       // ── Guard: jangan buat job baru jika sudah ada QUEUED/RUNNING untuk album ini
+      // Tapi cleanup zombie dulu: job RUNNING >10 menit = stuck, matikan
+      await prisma.syncJob.updateMany({
+        where: {
+          albumId: album.id,
+          status: { in: ["QUEUED", "RUNNING"] },
+          startedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) }, // >10 menit
+        },
+        data: {
+          status: "FAILED",
+          completedAt: new Date(),
+          errorMessage: "Job zombie — otomatis dibersihkan (timeout >10 menit)",
+        },
+      });
+
       const activeJob = await prisma.syncJob.findFirst({
         where: { albumId: album.id, status: { in: ["QUEUED", "RUNNING"] } },
         orderBy: { createdAt: "desc" },

@@ -27,8 +27,11 @@ export default async function SyncPage({ searchParams }: Props) {
       where: albumWhere,
       include: {
         eventDay: {
-          include: { event: { select: { id: true, title: true, slug: true } } },
+          include: {
+            event: { select: { id: true, title: true, slug: true } },
+          },
         },
+        albumGroup: { select: { id: true, name: true } },
         _count: { select: { mediaFiles: { where: { status: "ACTIVE" } } } },
       },
       orderBy: [

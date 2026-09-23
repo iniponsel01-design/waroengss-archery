@@ -15,7 +15,12 @@ interface Album {
   id: string;
   name: string;
   driveFolderId: string | null;
-  eventDay: { event: { id: string; title: string; slug: string } };
+  eventDay: {
+    dayNumber: number;
+    title: string;
+    event: { id: string; title: string; slug: string };
+  };
+  albumGroup: { id: string; name: string } | null;
   _count: { mediaFiles: number };
 }
 
@@ -425,8 +430,16 @@ export function SyncManager({
                     <p className="font-medium text-gray-800 text-sm truncate">
                       {album.eventDay.event.title}
                     </p>
-                    <p className="text-sm text-gray-500">
-                      {album.name} · {formatNumber(album._count.mediaFiles)} foto
+                    {/* Breadcrumb: Day → Grup → Album */}
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      {album.eventDay.title}
+                      {album.albumGroup && (
+                        <span className="text-gray-300"> › {album.albumGroup.name}</span>
+                      )}
+                      <span className="text-gray-500 font-medium"> › {album.name}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {formatNumber(album._count.mediaFiles)} foto tersimpan
                     </p>
                     {/* Hasil sync */}
                     {syncResults[album.id] && (

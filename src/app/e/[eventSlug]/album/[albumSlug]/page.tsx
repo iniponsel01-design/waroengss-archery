@@ -127,18 +127,17 @@ export default async function AlbumPage({ params, searchParams }: Props) {
                   <Heart size={15} />
                   <span className="hidden sm:inline">Favorit</span>
                 </Link>
-                {/* Download ZIP — hanya jika ≤200 foto */}
-                {album._count.mediaFiles <= 200 && (
-                  <a
-                    href={`/api/albums/${album.id}/download-zip`}
-                    className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-green-400 text-sm px-3 py-2 rounded-xl transition-colors"
-                    aria-label="Download semua foto"
-                    download
-                  >
-                    <Download size={15} />
-                    <span className="hidden sm:inline">ZIP</span>
-                  </a>
-                )}
+                {/* Download — buka Google Drive folder langsung */}
+                <a
+                  href={`/api/albums/${album.id}/download-zip`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-green-400 text-sm px-3 py-2 rounded-xl transition-colors"
+                  aria-label="Link download semua foto"
+                >
+                  <Download size={15} />
+                  <span className="hidden sm:inline">Unduh</span>
+                </a>
               </div>
             </div>
           </div>

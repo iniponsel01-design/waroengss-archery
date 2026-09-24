@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { getDriveClient } from "@/lib/storage/google-drive/client";
 
 /**
- * Secure photo download endpoint
+ * Photo download endpoint
  *
- * Strategy:
- * 1. Validate photo exists and is ACTIVE in DB
- * 2. Download from Google Drive server-side (credentials never reach browser)
- * 3. Stream file to client as attachment
+ * Strategy: Redirect langsung ke Google Drive download URL.
+ * Foto tidak diproxy melalui Vercel — menghemat bandwidth Vercel secara signifikan.
  *
- * Credentials are NEVER sent to the browser.
+ * Google Drive direct download URL bekerja selama folder sudah di-share (Anyone with link).
+ * Credentials service account tidak diekspos ke browser karena kita hanya redirect ke URL publik Drive.
  */
 export async function GET(
   _req: NextRequest,
@@ -18,7 +16,7 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  // 1. Validate photo in DB
+  // Validate photo in DB
   const photo = await prisma.mediaFile.findFirst({
     where: { id, status: "ACTIVE" },
     select: {
@@ -33,33 +31,15 @@ export async function GET(
     return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   }
 
-  try {
-    // 2. Download from Drive via service account (server-side only)
-    const drive = await getDriveClient();
+  // Redirect langsung ke Google Drive — tidak proxy melalui Vercel
+  // URL ini bekerja untuk file dalam folder yang di-share "Anyone with link"
+  const driveDownloadUrl = `https://drive.google.com/uc?export=download&id=${photo.driveFileId}&confirm=t`;
 
-    const response = await drive.files.get(
-      { fileId: photo.driveFileId, alt: "media" },
-      { responseType: "arraybuffer" }
-    );
-
-    const buffer = Buffer.from(response.data as ArrayBuffer);
-
-    // 3. Return as download
-    return new NextResponse(new Uint8Array(buffer), {
-      status: 200,
-      headers: {
-        "Content-Type": photo.mimeType || "image/jpeg",
-        "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(photo.filename)}`,
-        "Content-Length": buffer.length.toString(),
-        "Cache-Control": "private, max-age=3600",
-      },
-    });
-  } catch (error) {
-    console.error("Download error for", photo.driveFileId, error);
-
-    // Fallback: redirect to Drive direct download
-    // Note: this may fail for private files — but keeps UX working
-    const fallbackUrl = `https://drive.google.com/uc?export=download&id=${photo.driveFileId}`;
-    return NextResponse.redirect(fallbackUrl, { status: 302 });
-  }
+  return NextResponse.redirect(driveDownloadUrl, {
+    status: 302,
+    headers: {
+      // Cache redirect 1 jam agar tidak bolak-balik ke server
+      "Cache-Control": "public, max-age=3600",
+    },
+  });
 }

@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/db/client";
-import { prisma } from "@/lib/db/client";
 import { SyncManager } from "@/components/admin/SyncManager";
 
 export const dynamic = "force-dynamic";

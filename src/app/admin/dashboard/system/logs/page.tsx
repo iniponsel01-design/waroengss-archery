@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db/client";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";

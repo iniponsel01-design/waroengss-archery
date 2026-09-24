@@ -152,6 +152,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: job });
     }
 
+    // Cleanup zombie jobs >10 menit sebelum return list
+    // — ini memastikan riwayat tidak menampilkan RUNNING yang sudah stuck
+    await prisma.syncJob.updateMany({
+      where: {
+        status: { in: ["QUEUED", "RUNNING"] },
+        startedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
+      },
+      data: {
+        status: "FAILED",
+        completedAt: new Date(),
+        errorMessage: "Job zombie — otomatis dibersihkan (timeout >10 menit)",
+      },
+    });
+
     const jobs = await prisma.syncJob.findMany({
       where: eventId ? { eventId } : {},
       orderBy: { createdAt: "desc" },

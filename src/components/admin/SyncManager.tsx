@@ -52,7 +52,13 @@ interface SyncManagerProps {
   totalJobs: number;
   jobPage: number;
   jobsPerPage: number;
-  allAlbumsForSyncAll: { id: string; name: string; driveFolderId: string | null }[];
+  allAlbumsForSyncAll: {
+    id: string;
+    name: string;
+    driveFolderId: string | null;
+    albumGroup: { id: string; name: string } | null;
+    eventDay: { title: string; event: { title: string } };
+  }[];
   events: Event[];
   currentEventFilter?: string;
 }
@@ -227,10 +233,17 @@ export function SyncManager({
 
     let done = 0;
     let totalAdded = 0;
-    let totalFailed = 0;
+    const failedAlbums: string[] = [];  // ← track nama album yang gagal
 
     for (const album of allAlbumsForSyncAll) {
-      setSyncAllCurrentAlbum(album.name);
+      // Breadcrumb lengkap: sama persis dengan tampilan di tabel Album Siap Sync
+      const breadcrumb = [
+        album.eventDay.title,
+        album.albumGroup?.name,
+        album.name,
+      ].filter(Boolean).join(" › ");
+
+      setSyncAllCurrentAlbum(breadcrumb);
       setSyncAllFileProgress({ total: 0, processed: 0, currentFile: null });
 
       try {
@@ -246,7 +259,7 @@ export function SyncManager({
           // Poll dengan update progress Sync All
           const job = await new Promise<{ addedFiles: number; status: string }>((resolve) => {
             const INTERVAL = 2000;
-            const MAX = 90;
+            const MAX = 180;  // 6 menit
             let attempts = 0;
             const check = async () => {
               attempts++;
@@ -268,7 +281,18 @@ export function SyncManager({
                 }
               } catch { /* silent */ }
               if (attempts < MAX) setTimeout(check, INTERVAL);
-              else resolve({ addedFiles: 0, status: "TIMEOUT" });
+              else {
+                // Timeout — cek sekali lagi
+                try {
+                  const r = await fetch(`/api/admin/drive/sync?jobId=${jobId}`);
+                  const j = await r.json();
+                  if (j.data && ["COMPLETED", "PARTIAL", "FAILED"].includes(j.data.status)) {
+                    resolve(j.data);
+                    return;
+                  }
+                } catch { /* silent */ }
+                resolve({ addedFiles: 0, status: "TIMEOUT" });
+              }
             };
             setTimeout(check, INTERVAL);
           });
@@ -276,13 +300,13 @@ export function SyncManager({
           if (job.status === "COMPLETED" || job.status === "PARTIAL") {
             totalAdded += job.addedFiles ?? 0;
           } else {
-            totalFailed++;
+            failedAlbums.push(breadcrumb);
           }
         } else {
-          totalFailed++;
+          failedAlbums.push(breadcrumb);
         }
       } catch {
-        totalFailed++;
+        failedAlbums.push(breadcrumb);
       }
 
       done++;
@@ -293,10 +317,16 @@ export function SyncManager({
     setSyncAllCurrentAlbum(null);
     setSyncAllFileProgress(null);
     router.refresh();
-    alert(
-      `Sync selesai!\n✓ ${totalAdded} foto baru` +
-      (totalFailed > 0 ? `\n✗ ${totalFailed} album gagal` : "\nSemua album berhasil")
-    );
+
+    // Popup hasil — tampilkan nama album yang gagal jika ada
+    let message = `Sync selesai!\n✓ ${totalAdded} foto baru`;
+    if (failedAlbums.length > 0) {
+      message += `\n✗ ${failedAlbums.length} album gagal:\n`;
+      message += failedAlbums.map((name) => `  • ${name}`).join("\n");
+    } else {
+      message += "\n✓ Semua album berhasil";
+    }
+    alert(message);
   };
 
   const buildUrl = (params: Record<string, string | undefined>) => {
@@ -359,7 +389,7 @@ export function SyncManager({
               <span className="flex items-center gap-1.5">
                 <Loader2 size={11} className="animate-spin text-green-500" />
                 {syncAllCurrentAlbum
-                  ? <span>Sync: <strong className="text-gray-700">{syncAllCurrentAlbum}</strong></span>
+                  ? <span>Sync: <strong className="text-gray-700 truncate max-w-[300px]" title={syncAllCurrentAlbum}>{syncAllCurrentAlbum}</strong></span>
                   : <span>Menyinkronkan...</span>
                 }
               </span>

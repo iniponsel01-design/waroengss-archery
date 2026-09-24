@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/client";
+import { prisma } from "@/lib/db/client";
 import { SyncManager } from "@/components/admin/SyncManager";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,19 @@ export default async function SyncPage({ searchParams }: Props) {
   const { page, jobPage, event: eventFilter } = await searchParams;
   const albumPage = Math.max(1, parseInt(page ?? "1"));
   const jobPageNum = Math.max(1, parseInt(jobPage ?? "1"));
+
+  // Cleanup zombie jobs >10 menit setiap kali halaman sync dimuat
+  await prisma.syncJob.updateMany({
+    where: {
+      status: { in: ["QUEUED", "RUNNING"] },
+      startedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
+    },
+    data: {
+      status: "FAILED",
+      completedAt: new Date(),
+      errorMessage: "Job zombie — otomatis dibersihkan (timeout >10 menit)",
+    },
+  });
 
   // Albums with Drive folder — paginated
   const albumWhere = {
@@ -67,7 +81,13 @@ export default async function SyncPage({ searchParams }: Props) {
       status: "ACTIVE",                                  // exclude HIDDEN
       ...(eventFilter ? { eventDay: { event: { id: eventFilter } } } : {}),
     },
-    select: { id: true, name: true, driveFolderId: true },
+    select: {
+      id: true,
+      name: true,
+      driveFolderId: true,
+      albumGroup: { select: { id: true, name: true } },
+      eventDay: { select: { title: true, event: { select: { title: true } } } },
+    },
   });
 
   // Events for filter dropdown

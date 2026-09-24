@@ -253,6 +253,16 @@ function PhotoItem({
 
       {/* Hover overlay */}
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
+
+      {/* Watermark — tampil samar di pojok kanan bawah */}
+      {loaded && (
+        <span
+          className="absolute bottom-1.5 right-1.5 text-white/20 text-[9px] font-medium select-none pointer-events-none"
+          style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
+        >
+          WSS Gallery
+        </span>
+      )}
     </button>
   );
 }

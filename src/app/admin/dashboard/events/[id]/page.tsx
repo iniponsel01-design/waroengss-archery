@@ -4,7 +4,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db/client";
 import { EventForm } from "@/components/admin/EventForm";
 import { DayManager } from "@/components/admin/DayManager";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Eye } from "lucide-react";
 import { DeleteEventButton } from "@/components/admin/DeleteEventButton";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +58,15 @@ export default async function EditEventPage({ params }: Props) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-900 truncate">{event.title}</h1>
         <div className="flex items-center gap-2">
+          {/* Preview — tersedia untuk semua status termasuk Draft */}
+          <Link
+            href={`/admin/preview/${event.slug}`}
+            target="_blank"
+            className="flex items-center gap-1.5 text-sm text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Eye size={14} />
+            Preview
+          </Link>
           {event.status === "PUBLISHED" && (
             <Link
               href={`/e/${event.slug}`}

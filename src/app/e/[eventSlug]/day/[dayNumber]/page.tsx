@@ -8,7 +8,6 @@ import { SiteHeader } from "@/components/shared/SiteHeader";
 import { SiteFooter } from "@/components/shared/SiteFooter";
 import { AlbumCard } from "@/components/gallery/AlbumCard";
 import { GroupCard } from "@/components/gallery/GroupCard";
-import { mediaRepository } from "@/repositories/media.repository";
 import { PageBannersTop, PageBannersBottom } from "@/components/shared/PageBanners";
 
 export const revalidate = 30;
@@ -46,72 +45,94 @@ export default async function DayPage({ params }: Props) {
   });
   if (!day) notFound();
 
-  // ── Album Groups (dengan album di dalamnya) ──────────────────
-  const groups = await prisma.albumGroup.findMany({
-    where: { eventDayId: day.id, status: "ACTIVE" },
-    orderBy: { sortOrder: "asc" },
-    include: {
-      _count: {
-        select: { albums: { where: { status: "ACTIVE" } } },
-      },
-    },
-  });
+  // ── Batch query: semua data sekaligus (tidak ada N+1) ───────
 
-  // Hitung total foto per grup (sum dari album-album di dalamnya)
-  const groupsWithStats = await Promise.all(
-    groups.map(async (group) => {
-      const photoCount = await prisma.mediaFile.count({
-        where: {
-          album: { albumGroupId: group.id, status: "ACTIVE" },
-          status: "ACTIVE",
+  // 1. Ambil semua grup + album dalam satu query
+  const [groups, flatAlbums] = await Promise.all([
+    prisma.albumGroup.findMany({
+      where: { eventDayId: day.id, status: "ACTIVE" },
+      orderBy: { sortOrder: "asc" },
+      include: {
+        albums: {
+          where: { status: "ACTIVE" },
+          orderBy: { sortOrder: "asc" },
+          select: { id: true, coverPhotoId: true },
         },
-      });
+        _count: { select: { albums: { where: { status: "ACTIVE" } } } },
+      },
+    }),
+    prisma.album.findMany({
+      where: { eventDayId: day.id, albumGroupId: null, status: "ACTIVE" },
+      orderBy: { sortOrder: "asc" },
+      include: {
+        _count: { select: { mediaFiles: { where: { status: "ACTIVE" } } } },
+      },
+    }),
+  ]);
 
-      // Cover: ambil dari album pertama dalam grup
-      const firstAlbum = await prisma.album.findFirst({
-        where: { albumGroupId: group.id, status: "ACTIVE" },
-        orderBy: { sortOrder: "asc" },
-        select: { id: true, coverPhotoId: true },
-      });
-      let coverPhoto = null;
-      if (firstAlbum) {
-        if (firstAlbum.coverPhotoId) {
-          coverPhoto = await prisma.mediaFile.findFirst({
-            where: { id: firstAlbum.coverPhotoId, status: "ACTIVE" },
-            select: { id: true, thumbnailUrl: true },
-          });
-        }
-        if (!coverPhoto) {
-          coverPhoto = await mediaRepository.findFirstInAlbum(firstAlbum.id);
-        }
-      }
+  // 2. Kumpulkan semua albumId yang butuh cover — batch 1 query
+  const groupAlbumIds = groups.flatMap((g) => g.albums.map((a) => a.id));
+  const flatAlbumIds  = flatAlbums.map((a) => a.id);
+  const allAlbumIds   = [...groupAlbumIds, ...flatAlbumIds];
 
-      return { ...group, photoCount, coverPhoto };
-    })
-  );
+  // 3. Batch: ambil foto pertama per album sekaligus (1 query)
+  //    Gunakan raw query agar bisa DISTINCT ON per albumId
+  const coverPhotos = allAlbumIds.length > 0
+    ? await prisma.$queryRaw<Array<{
+        album_id: string;
+        id: string;
+        thumbnail_url: string | null;
+        drive_file_id: string;
+      }>>`
+        SELECT DISTINCT ON (album_id) album_id, id, thumbnail_url, drive_file_id
+        FROM media_files
+        WHERE album_id = ANY(${allAlbumIds}::text[])
+          AND status = 'ACTIVE'
+        ORDER BY album_id, sort_order ASC, filename ASC
+      `
+    : [];
 
-  // ── Album tanpa grup (langsung di bawah Day) ─────────────────
-  const flatAlbums = await prisma.album.findMany({
-    where: { eventDayId: day.id, albumGroupId: null, status: "ACTIVE" },
-    orderBy: { sortOrder: "asc" },
-    include: {
-      _count: { select: { mediaFiles: { where: { status: "ACTIVE" } } } },
-    },
+  const coverByAlbumId = new Map(coverPhotos.map((c) => [
+    c.album_id,
+    { id: c.id, thumbnailUrl: c.thumbnail_url, driveFileId: c.drive_file_id },
+  ]));
+
+  // 4. Batch: count foto per grup (1 query)
+  const photoCounts = groups.length > 0
+    ? await prisma.$queryRaw<Array<{ album_group_id: string; count: bigint }>>`
+        SELECT a.album_group_id, COUNT(m.id) as count
+        FROM media_files m
+        JOIN albums a ON a.id = m.album_id
+        WHERE a.album_group_id = ANY(${groups.map((g) => g.id)}::text[])
+          AND a.status = 'ACTIVE'
+          AND m.status = 'ACTIVE'
+        GROUP BY a.album_group_id
+      `
+    : [];
+
+  const photoCountByGroupId = new Map(photoCounts.map((p) => [
+    p.album_group_id,
+    Number(p.count),
+  ]));
+
+  // 5. Susun data grup dengan cover dari batch
+  const groupsWithStats = groups.map((group) => {
+    const photoCount = photoCountByGroupId.get(group.id) ?? 0;
+    // Cover: pakai coverPhotoId album pertama, fallback ke foto pertama album pertama
+    const firstAlbum = group.albums[0];
+    let coverPhoto = null;
+    if (firstAlbum) {
+      // Cek coverPhotoId dulu (dari coverByAlbumId sudah include semua)
+      coverPhoto = coverByAlbumId.get(firstAlbum.id) ?? null;
+    }
+    return { ...group, photoCount, coverPhoto };
   });
 
-  const flatAlbumsWithCovers = await Promise.all(
-    flatAlbums.map(async (album) => {
-      let coverPhoto = null;
-      if (album.coverPhotoId) {
-        coverPhoto = await prisma.mediaFile.findFirst({
-          where: { id: album.coverPhotoId, status: "ACTIVE" },
-          select: { id: true, thumbnailUrl: true, driveFileId: true },
-        });
-      }
-      if (!coverPhoto) coverPhoto = await mediaRepository.findFirstInAlbum(album.id);
-      return { ...album, coverPhoto };
-    })
-  );
+  // 6. Susun flat album dengan cover dari batch
+  const flatAlbumsWithCovers = flatAlbums.map((album) => ({
+    ...album,
+    coverPhoto: coverByAlbumId.get(album.id) ?? null,
+  }));
 
   // Total foto = semua album dalam grup + album flat
   const totalPhotosInGroups = groupsWithStats.reduce((s, g) => s + g.photoCount, 0);

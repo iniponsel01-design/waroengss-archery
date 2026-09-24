@@ -28,6 +28,14 @@ export default async function SyncPage({ searchParams }: Props) {
     },
   });
 
+  // Retention: hapus job terminal (COMPLETED/FAILED/PARTIAL) yang lebih dari 30 hari
+  await prisma.syncJob.deleteMany({
+    where: {
+      status: { in: ["COMPLETED", "FAILED", "PARTIAL"] },
+      createdAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+    },
+  });
+
   // Albums with Drive folder — paginated
   const albumWhere = {
     driveFolderId: { not: null as string | null },

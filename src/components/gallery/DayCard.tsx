@@ -4,6 +4,7 @@ import { formatNumber } from "@/lib/utils/date";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils/cn";
+import { NewPhotoBadge } from "./NewPhotoBadge";
 
 interface DayCardProps {
   day: {
@@ -63,6 +64,7 @@ export function DayCard({ day, eventSlug }: DayCardProps) {
               Segera
             </span>
           )}
+          <NewPhotoBadge storageKey={`day-${day.id}`} currentCount={day._count.mediaFiles} />
         </div>
       </div>
 

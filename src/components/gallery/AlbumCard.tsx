@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Images } from "lucide-react";
 import { formatNumber } from "@/lib/utils/date";
+import { NewPhotoBadge } from "./NewPhotoBadge";
 
 interface AlbumCardProps {
   album: {
@@ -63,9 +64,12 @@ export function AlbumCard({ album, eventSlug, dayNumber, groupSlug }: AlbumCardP
             {album.description}
           </p>
         )}
-        <p className="text-xs text-gray-400 mt-2">
-          {formatNumber(album._count.mediaFiles)} foto
-        </p>
+        <div className="flex items-center gap-2 mt-2">
+          <p className="text-xs text-gray-400">
+            {formatNumber(album._count.mediaFiles)} foto
+          </p>
+          <NewPhotoBadge storageKey={`album-${album.id}`} currentCount={album._count.mediaFiles} />
+        </div>
       </div>
     </Link>
   );

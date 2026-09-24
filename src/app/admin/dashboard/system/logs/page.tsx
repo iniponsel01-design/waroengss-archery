@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/db/client";
 import Link from "next/link";
 import { Suspense } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { LogFilters } from "@/components/admin/LogFilters";
+import { prisma } from "@/lib/db/client";
 
 export const dynamic = "force-dynamic";
 
@@ -29,17 +30,27 @@ interface Props {
     page?: string;
     action?: string;
     user?: string;
+    from?: string;   // ISO date filter dari
+    to?: string;     // ISO date filter sampai
+  }>;
+}
   }>;
 }
 
 export default async function AdminLogsPage({ searchParams }: Props) {
-  const { page, action: actionFilter, user: userFilter } = await searchParams;
+  const { page, action: actionFilter, user: userFilter, from, to } = await searchParams;
   const currentPage = Math.max(1, parseInt(page ?? "1"));
 
-  // Build where clause
+  // Build where clause dengan date range
   const where = {
     ...(actionFilter ? { action: actionFilter } : {}),
     ...(userFilter ? { userId: userFilter } : {}),
+    ...(from || to ? {
+      createdAt: {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(to ? { lte: new Date(to + "T23:59:59.999Z") } : {}),
+      },
+    } : {}),
   };
 
   const [logs, totalLogs, actions, users] = await prisma.$transaction([
@@ -84,6 +95,14 @@ export default async function AdminLogsPage({ searchParams }: Props) {
             Riwayat aktivitas admin — {totalLogs.toLocaleString("id-ID")} log total
           </p>
         </div>
+        {/* Export CSV */}
+        <a
+          href={`/api/admin/logs/export?action=${actionFilter ?? ""}&user=${userFilter ?? ""}&from=${from ?? ""}&to=${to ?? ""}`}
+          className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-3 py-2 rounded-xl transition-colors"
+        >
+          <Download size={14} />
+          Export CSV
+        </a>
       </div>
 
       {/* Filters — client component for interactivity */}

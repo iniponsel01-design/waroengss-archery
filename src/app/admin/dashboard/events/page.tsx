@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db/client";
-import { Plus, Edit, Eye, ExternalLink } from "lucide-react";
+import { Plus, Edit, ExternalLink, Download } from "lucide-react";
 import { formatDateRange } from "@/lib/utils/date";
 
 export const dynamic = "force-dynamic";
@@ -73,6 +73,16 @@ export default async function AdminEventsPage() {
                       <ExternalLink size={16} />
                     </Link>
                   )}
+                  {/* Export CSV foto */}
+                  <a
+                    href={`/api/admin/albums/export?eventId=${event.id}`}
+                    className="p-1.5 text-gray-400 hover:text-green-600 transition-colors"
+                    aria-label="Export foto sebagai CSV"
+                    title="Export CSV"
+                    download
+                  >
+                    <Download size={16} />
+                  </a>
                   <Link
                     href={`/admin/dashboard/events/${event.id}`}
                     className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-colors"

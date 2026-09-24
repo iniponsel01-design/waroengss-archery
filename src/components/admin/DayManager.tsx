@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Plus, ChevronDown, ChevronRight, Loader2, RefreshCw,
   AlertCircle, CheckCircle, Pencil, Trash2, X, Save,
-  ArrowUp, ArrowDown, EyeOff, Eye, Layers, FileImage,
+  ArrowUp, ArrowDown, EyeOff, Eye, Layers, FileImage, FolderSync,
 } from "lucide-react";
 import { generateSlug } from "@/lib/utils/slug";
 import { formatNumber } from "@/lib/utils/date";
@@ -58,6 +58,7 @@ interface DayManagerProps {
 const emptyAlbumForm = { name: "", slug: "", driveFolderId: "", albumGroupId: "" };
 const emptyGroupForm = { name: "", slug: "", description: "" };
 const emptyDayForm = (nextDay: number) => ({ title: "", dayNumber: nextDay, description: "", date: "" });
+const emptyImportForm = { dayFolderId: "" };
 const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white";
 
 // ─── Component ───────────────────────────────────────────────
@@ -102,6 +103,12 @@ export function DayManager({ event, days }: DayManagerProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Import dari Drive state
+  const [showImport, setShowImport] = useState<string | null>(null); // dayId
+  const [importForm, setImportForm] = useState(emptyImportForm);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   // ── POLL SYNC JOB ─────────────────────────────────────────
   const pollSyncJob = useCallback((albumId: string, jobId: string) => {
@@ -236,6 +243,35 @@ export function DayManager({ event, days }: DayManagerProps) {
       else alert("Gagal menghapus hari.");
     } catch { alert("Terjadi kesalahan jaringan."); }
     finally { setDeletingId(null); }
+  };
+
+  // ── Import dari Drive (syncDayFolders) ───────────────────
+  const handleImportFromDrive = async (e: React.FormEvent, dayId: string) => {
+    e.preventDefault();
+    if (!importForm.dayFolderId.trim()) return;
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      const res = await fetch("/api/admin/drive/sync-day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventDayId: dayId, dayFolderId: importForm.dayFolderId.trim() }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        const d = json.data;
+        setImportResult(
+          `✓ ${d.groupsCreated} grup baru · ${d.albumsCreated} album baru · ${d.albumsUpdated} album diperbarui`
+        );
+        router.refresh();
+      } else {
+        setImportResult(`✗ ${json.error || "Import gagal"}`);
+      }
+    } catch {
+      setImportResult("✗ Kesalahan jaringan");
+    } finally {
+      setImportLoading(false);
+    }
   };
 
   // ── ALBUM GROUP HANDLERS ──────────────────────────────────
@@ -662,6 +698,44 @@ export function DayManager({ event, days }: DayManagerProps) {
 
               {/* ── Tombol tambah ─────────────────────── */}
               <div className="flex flex-wrap gap-3 pt-1 border-t border-gray-100">
+
+                {/* Import dari Drive */}
+                {showImport === day.id ? (
+                  <form onSubmit={(e) => handleImportFromDrive(e, day.id)}
+                    className="w-full border border-purple-200 bg-purple-50 rounded-lg p-3 space-y-2">
+                    <p className="text-xs font-semibold text-purple-700 flex items-center gap-1">
+                      <FolderSync size={12} /> Import dari Drive (scan sub-folder otomatis)
+                    </p>
+                    <p className="text-xs text-purple-500">
+                      Sub-folder level 1 → Grup, level 2 → Album. Folder tanpa sub-folder → Album langsung.
+                    </p>
+                    <input type="text" placeholder="Drive Folder ID untuk Day ini"
+                      value={importForm.dayFolderId}
+                      onChange={(e) => setImportForm({ dayFolderId: e.target.value.trim() })}
+                      required className={inputClass} />
+                    {importResult && (
+                      <p className={`text-xs font-medium ${importResult.startsWith("✓") ? "text-green-600" : "text-red-500"}`}>
+                        {importResult}
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <button type="submit" disabled={importLoading}
+                        className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+                        {importLoading ? <Loader2 size={12} className="animate-spin" /> : <FolderSync size={12} />}
+                        {importLoading ? "Mengimpor..." : "Import & Sync"}
+                      </button>
+                      <button type="button" onClick={() => { setShowImport(null); setImportResult(null); }}
+                        className="text-xs text-gray-500 px-2">Batal</button>
+                    </div>
+                  </form>
+                ) : (
+                  <button type="button"
+                    onClick={() => { setShowImport(day.id); setImportForm(emptyImportForm); setImportResult(null); }}
+                    className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700 font-medium py-1">
+                    <FolderSync size={13} /> Import dari Drive
+                  </button>
+                )}
+
                 {/* Tambah Grup */}
                 {showAddGroup === day.id ? (
                   <form onSubmit={(e) => handleAddGroup(e, day.id)}

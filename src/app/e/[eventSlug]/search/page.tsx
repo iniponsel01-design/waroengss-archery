@@ -12,7 +12,10 @@ import { PageBannersTop } from "@/components/shared/PageBanners";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+interface Props {
+  params: Promise<{ eventSlug: string }>;
+  searchParams: Promise<{ q?: string; day?: string; album?: string; group?: string; page?: string }>;
+}({ params, searchParams }: Props): Promise<Metadata> {
   const { eventSlug } = await params;
   const { q } = await searchParams;
   const event = await eventRepository.findPublishedBySlug(eventSlug);
@@ -25,7 +28,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function SearchPage({ params, searchParams }: Props) {
   const { eventSlug } = await params;
-  const { q, day, album: albumFilter, page } = await searchParams;
+  const { q, day, album: albumFilter, group: groupFilter, page } = await searchParams;
 
   const event = await eventRepository.findPublishedBySlug(eventSlug);
   if (!event) notFound();
@@ -37,13 +40,29 @@ export default async function SearchPage({ params, searchParams }: Props) {
     orderBy: { sortOrder: "asc" },
   });
 
+  // Get all album groups for filter (grouped by day)
+  const albumGroups = await prisma.albumGroup.findMany({
+    where: {
+      status: "ACTIVE",
+      eventDay: { eventId: event.id, status: "ACTIVE" },
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      eventDayId: true,
+      eventDay: { select: { dayNumber: true, title: true } },
+    },
+    orderBy: [{ eventDay: { sortOrder: "asc" } }, { sortOrder: "asc" }],
+  });
+
   // Get all albums for filter
   const albums = await prisma.album.findMany({
     where: {
       status: "ACTIVE",
       eventDay: { eventId: event.id, status: "ACTIVE" },
     },
-    select: { id: true, name: true, slug: true, eventDayId: true },
+    select: { id: true, name: true, slug: true, eventDayId: true, albumGroupId: true },
     orderBy: { name: "asc" },
   });
 
@@ -79,9 +98,11 @@ export default async function SearchPage({ params, searchParams }: Props) {
               eventSlug={eventSlug}
               query={q}
               dayFilter={day}
+              groupFilter={groupFilter}
               albumFilter={albumFilter}
               page={page ? parseInt(page) : 1}
               days={days}
+              albumGroups={albumGroups}
               albums={albums}
             />
           </Suspense>

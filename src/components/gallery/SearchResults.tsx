@@ -13,11 +13,20 @@ interface Day {
   title: string;
 }
 
+interface AlbumGroup {
+  id: string;
+  name: string;
+  slug: string;
+  eventDayId: string;
+  eventDay: { dayNumber: number; title: string };
+}
+
 interface Album {
   id: string;
   name: string;
   slug: string;
   eventDayId: string;
+  albumGroupId: string | null;
 }
 
 interface Photo {
@@ -38,9 +47,11 @@ interface SearchResultsProps {
   eventSlug: string;
   query?: string;
   dayFilter?: string;
+  groupFilter?: string;
   albumFilter?: string;
   page: number;
   days: Day[];
+  albumGroups: AlbumGroup[];
   albums: Album[];
 }
 
@@ -49,9 +60,11 @@ export function SearchResults({
   eventSlug,
   query,
   dayFilter,
+  groupFilter,
   albumFilter,
   page,
   days,
+  albumGroups,
   albums,
 }: SearchResultsProps) {
   const router = useRouter();
@@ -65,22 +78,29 @@ export function SearchResults({
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
 
-  // Search input
+  // Search input state
   const [q, setQ] = useState(query ?? "");
   const [activeDay, setActiveDay] = useState(dayFilter ?? "");
+  const [activeGroup, setActiveGroup] = useState(groupFilter ?? "");
   const [activeAlbum, setActiveAlbum] = useState(albumFilter ?? "");
+
+  // Filter album berdasarkan grup aktif (jika ada)
+  const filteredAlbums = activeGroup
+    ? albums.filter((a) => a.albumGroupId === activeGroup ||
+        albumGroups.find((g) => g.slug === activeGroup)?.id === a.albumGroupId)
+    : albums;
 
   useEffect(() => {
     fetchResults();
-  }, [query, dayFilter, albumFilter, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query, dayFilter, groupFilter, albumFilter, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchResults = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ eventSlug });
-      if (query)      params.set("q",          query);
-      if (dayFilter)  params.set("dayNumber",   dayFilter);
-      if (albumFilter) params.set("albumSlug",  albumFilter);   // FIX: sebelumnya tidak dikirim
+      if (query)       params.set("q",         query);
+      if (dayFilter)   params.set("dayNumber",  dayFilter);
+      if (albumFilter) params.set("albumSlug",  albumFilter);
       params.set("page",     String(page));
       params.set("pageSize", "48");
 
@@ -99,20 +119,22 @@ export function SearchResults({
 
   const applyFilters = () => {
     const params = new URLSearchParams();
-    if (q.trim())     params.set("q",      q.trim());
-    if (activeDay)    params.set("day",    activeDay);
-    if (activeAlbum)  params.set("album",  activeAlbum);  // key "album" sesuai searchParams di page.tsx
+    if (q.trim())    params.set("q",     q.trim());
+    if (activeDay)   params.set("day",   activeDay);
+    if (activeGroup) params.set("group", activeGroup);
+    if (activeAlbum) params.set("album", activeAlbum);
     router.push(`${pathname}?${params.toString()}`);
   };
 
   const clearFilters = () => {
     setQ("");
     setActiveDay("");
+    setActiveGroup("");
     setActiveAlbum("");
     router.push(pathname);
   };
 
-  const hasFilters = query || dayFilter || albumFilter;
+  const hasFilters = query || dayFilter || groupFilter || albumFilter;
 
   return (
     <div className="space-y-6">
@@ -182,8 +204,43 @@ export function SearchResults({
             ))}
           </div>
 
+          {/* Sesi / AlbumGroup filter */}
+          {albumGroups.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-gray-500 flex items-center gap-1">
+                <Filter size={12} /> Sesi:
+              </span>
+              <button
+                onClick={() => { setActiveGroup(""); setActiveAlbum(""); }}
+                className={cn(
+                  "text-xs px-3 py-1 rounded-full transition-colors",
+                  !activeGroup
+                    ? "bg-brand-600 text-white"
+                    : "bg-gray-800 text-gray-400 hover:text-white"
+                )}
+              >
+                Semua
+              </button>
+              {albumGroups.map((group) => (
+                <button
+                  key={group.id}
+                  onClick={() => { setActiveGroup(group.slug); setActiveAlbum(""); }}
+                  className={cn(
+                    "text-xs px-3 py-1 rounded-full transition-colors",
+                    activeGroup === group.slug
+                      ? "bg-brand-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:text-white"
+                  )}
+                  title={`${group.eventDay.title} › ${group.name}`}
+                >
+                  {group.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Album filter — tampil hanya jika ada albums */}
-          {albums.length > 0 && (
+          {filteredAlbums.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs text-gray-500 flex items-center gap-1">
                 <Filter size={12} /> Album:
@@ -199,7 +256,7 @@ export function SearchResults({
               >
                 Semua
               </button>
-              {albums.map((album) => (
+              {filteredAlbums.map((album) => (
                 <button
                   key={album.id}
                   onClick={() => setActiveAlbum(album.slug)}

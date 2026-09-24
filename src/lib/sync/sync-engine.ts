@@ -455,25 +455,28 @@ export async function syncDayFoldersFromDrive(
           result.groupsCreated++;
         }
 
-        // Upsert Album untuk tiap sub-folder level-2
-        for (const l2 of level2Folders) {
-          const albumResult = await upsertAlbumAndSync({
-            eventId,
-            eventDayId,
-            albumGroupId: group.id,
-            folderName:   l2.name,
-            driveFolderId: l2.id,
-            result,
-          });
+        // Upsert Album untuk tiap sub-folder level-2 — paralel, bukan sequential
+        const l2Results = await Promise.all(
+          level2Folders.map((l2) =>
+            upsertAlbumAndSync({
+              eventId,
+              eventDayId,
+              albumGroupId: group.id,
+              folderName:   l2.name,
+              driveFolderId: l2.id,
+              result,
+            })
+          )
+        );
+        for (const [i, albumResult] of l2Results.entries()) {
           if (albumResult) {
             result.albumSyncResults.push({
               albumId:   albumResult.albumId,
-              albumName: l2.name,
+              albumName: level2Folders[i].name,
               result:    albumResult.syncResult,
             });
           }
-        }
-      } else {
+        }      } else {
         // ── Mode B: l1 langsung jadi Album (tanpa grup) ───────
         const albumResult = await upsertAlbumAndSync({
           eventId,

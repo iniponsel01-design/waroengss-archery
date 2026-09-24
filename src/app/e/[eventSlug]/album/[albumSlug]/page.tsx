@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Search, Download, Heart } from "lucide-react";
 import { eventRepository } from "@/repositories/event.repository";
 import { prisma } from "@/lib/db/client";
 import { SiteHeader } from "@/components/shared/SiteHeader";
@@ -118,6 +118,27 @@ export default async function AlbumPage({ params, searchParams }: Props) {
                   <Search size={15} />
                   <span className="hidden sm:inline">Cari</span>
                 </Link>
+                {/* Favorit */}
+                <Link
+                  href={`/e/${eventSlug}/favorites`}
+                  className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-red-400 text-sm px-3 py-2 rounded-xl transition-colors"
+                  aria-label="Foto Favorit"
+                >
+                  <Heart size={15} />
+                  <span className="hidden sm:inline">Favorit</span>
+                </Link>
+                {/* Download ZIP — hanya jika ≤200 foto */}
+                {album._count.mediaFiles <= 200 && (
+                  <a
+                    href={`/api/albums/${album.id}/download-zip`}
+                    className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-green-400 text-sm px-3 py-2 rounded-xl transition-colors"
+                    aria-label="Download semua foto"
+                    download
+                  >
+                    <Download size={15} />
+                    <span className="hidden sm:inline">ZIP</span>
+                  </a>
+                )}
               </div>
             </div>
           </div>

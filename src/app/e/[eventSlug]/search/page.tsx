@@ -15,7 +15,9 @@ export const dynamic = "force-dynamic";
 interface Props {
   params: Promise<{ eventSlug: string }>;
   searchParams: Promise<{ q?: string; day?: string; album?: string; group?: string; page?: string }>;
-}({ params, searchParams }: Props): Promise<Metadata> {
+}
+
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { eventSlug } = await params;
   const { q } = await searchParams;
   const event = await eventRepository.findPublishedBySlug(eventSlug);

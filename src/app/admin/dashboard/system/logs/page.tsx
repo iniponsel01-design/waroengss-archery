@@ -30,10 +30,8 @@ interface Props {
     page?: string;
     action?: string;
     user?: string;
-    from?: string;   // ISO date filter dari
-    to?: string;     // ISO date filter sampai
-  }>;
-}
+    from?: string;
+    to?: string;
   }>;
 }
 

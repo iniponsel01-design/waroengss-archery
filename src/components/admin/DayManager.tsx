@@ -404,11 +404,23 @@ export function DayManager({ event, days }: DayManagerProps) {
   const handleMoveAlbum = async (dayId: string, albumId: string, direction: "up" | "down") => {
     const day = days.find((d) => d.id === dayId);
     if (!day) return;
-    const sorted = [...day.albums].sort((a, b) => a.sortOrder - b.sortOrder);
-    const idx = sorted.findIndex((a) => a.id === albumId);
+
+    // Cari album yang dimove
+    const targetAlbum = day.albums.find((a) => a.id === albumId);
+    if (!targetAlbum) return;
+
+    // Sort hanya dalam scope yang sama (grup atau flat)
+    // Album dalam grup → bandingkan hanya dengan sesama album dalam grup yang sama
+    // Album flat → bandingkan hanya dengan sesama album flat
+    const scopeAlbums = day.albums
+      .filter((a) => a.albumGroupId === targetAlbum.albumGroupId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const idx = scopeAlbums.findIndex((a) => a.id === albumId);
     const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sorted.length) return;
-    const [albumA, albumB] = [sorted[idx], sorted[swapIdx]];
+    if (swapIdx < 0 || swapIdx >= scopeAlbums.length) return;
+
+    const [albumA, albumB] = [scopeAlbums[idx], scopeAlbums[swapIdx]];
     setReorderingId(albumId);
     try {
       await Promise.all([

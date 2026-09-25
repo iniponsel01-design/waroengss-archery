@@ -4,11 +4,10 @@ import { prisma } from "@/lib/db/client";
 /**
  * Photo download endpoint
  *
- * Strategy: Redirect langsung ke Google Drive download URL.
- * Foto tidak diproxy melalui Vercel — menghemat bandwidth Vercel secara signifikan.
+ * Redirect ke Google Drive usercontent — browser langsung download dari Google,
+ * tidak proxy melalui Vercel. Terasa seperti download dari web biasa.
  *
- * Google Drive direct download URL bekerja selama folder sudah di-share (Anyone with link).
- * Credentials service account tidak diekspos ke browser karena kita hanya redirect ke URL publik Drive.
+ * URL format: https://drive.usercontent.google.com/download?id=DRIVE_FILE_ID&export=download&authuser=0
  */
 export async function GET(
   _req: NextRequest,
@@ -16,29 +15,23 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  // Validate photo in DB
   const photo = await prisma.mediaFile.findFirst({
     where: { id, status: "ACTIVE" },
-    select: {
-      id: true,
-      driveFileId: true,
-      filename: true,
-      mimeType: true,
-    },
+    select: { driveFileId: true, filename: true },
   });
 
   if (!photo) {
     return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   }
 
-  // Redirect langsung ke Google Drive — tidak proxy melalui Vercel
-  // URL ini bekerja untuk file dalam folder yang di-share "Anyone with link"
-  const driveDownloadUrl = `https://drive.google.com/uc?export=download&id=${photo.driveFileId}&confirm=t`;
+  // Redirect ke Google Drive usercontent — download langsung dari Google
+  const downloadUrl =
+    `https://drive.usercontent.google.com/download?id=${photo.driveFileId}&export=download&authuser=0`;
 
-  return NextResponse.redirect(driveDownloadUrl, {
+  return NextResponse.redirect(downloadUrl, {
     status: 302,
     headers: {
-      // Cache redirect 1 jam agar tidak bolak-balik ke server
+      // Cache 1 jam — sama file tidak perlu hit server lagi
       "Cache-Control": "public, max-age=3600",
     },
   });

@@ -35,7 +35,7 @@ export async function GET(
   const downloadLinks = photos.map((p) => ({
     id: p.id,
     name: p.displayName ?? p.filename,
-    url: `https://drive.google.com/uc?export=download&id=${p.driveFileId}&confirm=t`,
+    url: `https://drive.usercontent.google.com/download?id=${p.driveFileId}&export=download&authuser=0`,
   }));
 
   return NextResponse.json({

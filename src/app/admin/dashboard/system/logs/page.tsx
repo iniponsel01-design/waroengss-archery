@@ -38,6 +38,11 @@ export default async function AdminLogsPage({ searchParams }: Props) {
   const { page, action: actionFilter, user: userFilter, from, to } = await searchParams;
   const currentPage = Math.max(1, parseInt(page ?? "1"));
 
+  // Retention: hapus audit log >30 hari saat halaman dibuka
+  await prisma.auditLog.deleteMany({
+    where: { createdAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+  });
+
   // Build where clause dengan date range
   const where = {
     ...(actionFilter ? { action: actionFilter } : {}),

@@ -34,8 +34,14 @@ export default async function HomePage() {
 
   // Tentukan label section berdasarkan komposisi status event
   const now = new Date();
+  const endOfDay = (d: Date) => {
+    const copy = new Date(d);
+    copy.setHours(23, 59, 59, 999);
+    return copy;
+  };
   const hasOngoing = events.some(e =>
-    e.startDate && e.startDate <= now && (e.endDate ?? e.startDate) >= now
+    e.startDate && e.startDate <= now &&
+    endOfDay(e.endDate ?? e.startDate) >= now
   );
   const hasUpcoming = events.some(e => e.startDate && e.startDate > now);
   const sectionLabel = hasOngoing

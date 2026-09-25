@@ -39,26 +39,39 @@ export class GoogleDriveProvider implements StorageProviderInterface {
 
   async listFolders(parentFolderId?: string): Promise<DriveFolder[]> {
     const drive = await getDriveClient();
+    const folders: DriveFolder[] = [];
+    let pageToken: string | undefined;
 
     const query = parentFolderId
       ? `mimeType = 'application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed = false`
       : `mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
 
-    const response = await drive.files.list({
-      q: query,
-      fields: "files(id, name, mimeType, createdTime, modifiedTime, parents)",
-      orderBy: "name",
-      pageSize: 100,
-    });
+    // Loop pagination — sama seperti listFiles, agar tidak ada folder yang terlewat
+    do {
+      const response = await drive.files.list({
+        q: query,
+        fields: "nextPageToken, files(id, name, mimeType, createdTime, modifiedTime, parents)",
+        orderBy: "name",
+        pageSize: 1000,
+        pageToken: pageToken || undefined,
+      });
 
-    return (response.data.files || []).map((f) => ({
-      id: f.id!,
-      name: f.name!,
-      mimeType: f.mimeType!,
-      createdTime: f.createdTime || undefined,
-      modifiedTime: f.modifiedTime || undefined,
-      parents: f.parents || undefined,
-    }));
+      const items = response.data.files || [];
+      for (const f of items) {
+        folders.push({
+          id: f.id!,
+          name: f.name!,
+          mimeType: f.mimeType!,
+          createdTime: f.createdTime || undefined,
+          modifiedTime: f.modifiedTime || undefined,
+          parents: f.parents || undefined,
+        });
+      }
+
+      pageToken = response.data.nextPageToken || undefined;
+    } while (pageToken);
+
+    return folders;
   }
 
   async listFiles(folderId: string): Promise<DriveFile[]> {

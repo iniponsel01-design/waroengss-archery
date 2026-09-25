@@ -7,7 +7,20 @@ export type EventStatus = "upcoming" | "ongoing" | "past" | "unknown";
 export function getEventStatus(startDate: Date | null, endDate: Date | null): EventStatus {
   if (!startDate) return "unknown";
   const now = new Date();
-  const end = endDate ?? startDate;
+
+  // Gunakan end of day untuk endDate — event yang berakhir tanggal 24
+  // dianggap selesai pada 23:59:59 tanggal 24, bukan 00:00:00
+  let end: Date;
+  if (endDate) {
+    // Set ke 23:59:59.999 hari yang sama
+    end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+  } else {
+    // Tidak ada endDate — gunakan end of day startDate
+    end = new Date(startDate);
+    end.setHours(23, 59, 59, 999);
+  }
+
   if (startDate > now) return "upcoming";
   if (end >= now) return "ongoing";
   return "past";
